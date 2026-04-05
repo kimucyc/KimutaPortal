@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaming Calendar Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --bg-deep: #0b0e14;
+            --bg-panel: #161b22;
+            --accent-blue: #00f2ff;
+            --accent-glow: rgba(0, 242, 255, 0.5);
+            --text-main: #e6edf3;
+            --border-color: #30363d;
+            --danger: #ff4b4b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Layout Structure */
+        .container { display: flex; width: 100%; height: 100%; }
+        
+        /* Left: Calendar (60%) */
+        .calendar-section {
+            flex: 6;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid var(--accent-blue);
+            box-shadow: 10px 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Right: Input Form (40%) */
+        .input-section {
+            flex: 4;
+            padding: 30px;
+            background-color: var(--bg-panel);
+            overflow-y: auto;
+        }
+
+        /* Typography */
+        h1, h2, .font-gaming { font-family: 'Orbitron', sans-serif; text-transform: uppercase; letter-spacing: 2px; }
+        .accent-text { color: var(--accent-blue); text-shadow: 0 0 10px var(--accent-glow); }
+
+        /* Calendar UI */
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .nav-btn {
+            background: transparent;
+            border: 1px solid var(--accent-blue);
+            color: var(--accent-blue);
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-family: 'Orbitron';
+        }
+        .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .nav-btn:hover:not(:disabled) { background: var(--accent-blue); color: var(--bg-deep); box-shadow: 0 0 15px var(--accent-blue); }
+
+        #calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            flex-grow: 1;
+            background-color: var(--border-color);
+            border: 1px solid var(--border-color);
+        }
+        .day-cell {
+            background-color: var(--bg-deep);
+            min-height: 80px;
+            padding: 5px;
+            position: relative;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .day-cell:hover { background-color: #1c2128; }
+        .day-cell.today { border: 1px solid var(--accent-blue); }
+        .day-cell.selected { background-color: rgba(0, 242, 255, 0.1); outline: 1px solid var(--accent-blue); }
+        .day-num { font-size: 0.8rem; margin-bottom: 5px; opacity: 0.7; }
+
+        /* Labels */
+        .schedule-label {
+            background: var(--accent-blue);
+            color: var(--bg-deep);
+            font-size: 0.7rem;
+            padding: 2px 5px;
+            margin-bottom: 2px;
+            border-radius: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: bold;
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* Form Styling */
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--accent-blue); }
+        input, textarea {
+            width: 100%;
+            background: #0d1117;
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 12px;
+            border-radius: 4px;
+            outline: none;
+        }
+        input:focus, textarea:focus { border-color: var(--accent-blue); box-shadow: 0 0 8px var(--accent-glow); }
+        
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        .primary-btn {
+            background: var(--accent-blue);
+            color: var(--bg-deep);
+            border: none;
+            padding: 15px;
+            flex: 1;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Orbitron';
+        }
+        .delete-btn { background: var(--danger); color: white; border: none; padding: 15px; cursor: pointer; display: none; }
+
+        .export-section { margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 20px; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="calendar-section" id="capture-area">
+        <div class="calendar-header">
+            <button class="nav-btn" id="prevBtn" onclick="changeMonth(-1)">&lt; PREV</button>
+            <h2 id="currentMonthDisplay" class="accent-text">2026.01</h2>
+            <button class="nav-btn" id="nextBtn" onclick="changeMonth(1)">NEXT &gt;</button>
+        </div>
+        <div id="calendar-grid">
+            </div>
+    </div>
+
+    <div class="input-section">
+        <h2 class="accent-text" style="margin-bottom: 20px;">Schedule</h2>
+        <p id="selectedDateDisplay" style="margin-bottom: 20px; opacity: 0.8;">日付を選択してください</p>
+        
+        <div id="entryForm">
+            <input type="hidden" id="editId">
+            <div class="form-group">
+                <label>TITLE</label>
+                <input type="text" id="titleInput" placeholder="Enter title...">
+            </div>
+            <div class="form-group">
+                <label>TIME (START - END)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="time" id="startTime">
+                    <span>-</span>
+                    <input type="time" id="endTime">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>MEMO</label>
+                <textarea id="memoInput" rows="4" placeholder="Notes..."></textarea>
+            </div>
+            
+            <div class="btn-group">
+                <button class="primary-btn" id="saveBtn" onclick="saveEntry()">SAVE ENTRY</button>
+                <button class="delete-btn" id="deleteBtn" onclick="deleteEntry()">DELETE</button>
+            </div>
+        </div>
+
+        <div class="export-section">
+            <button class="nav-btn" style="width: 100%;" onclick="exportPNG()">DOWNLOAD PNG (CALENDAR ONLY)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // State Management
+    let displayedDate = new Date(); // 表示中の月
+    const today = new Date();
+    const initialMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    // { "2026-01-05": [{id: 1, title: "", start: "", end: "", memo: ""}] }
+    let schedules = JSON.parse(localStorage.getItem('gaming_calendar_data')) || {};
+    let selectedDateStr = null;
+
+    function init() {
+        renderCalendar();
+    }
+
+    function renderCalendar() {
+        const grid = document.getElementById('calendar-grid');
+        const displayMonth = displayedDate.getMonth();
+        const displayYear = displayedDate.getFullYear();
+        
+        document.getElementById('currentMonthDisplay').innerText = `${displayYear}.${(displayMonth + 1).toString().padStart(2, '0')}`;
+        
+        // Month Navigation Limit (Prev/Next 1 month)
+        const monthDiff = (displayYear - today.getFullYear()) * 12 + (displayMonth - today.getMonth());
+        document.getElementById('prevBtn').disabled = monthDiff <= -1;
+        document.getElementById('nextBtn').disabled = monthDiff >= 1;
+
+        grid.innerHTML = '';
+
+        // Add Weekday headers
+        ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].forEach(day => {
+            const dayHeader = document.createElement('div');
+            dayHeader.className = 'day-cell font-gaming accent-text';
+            dayHeader.style.minHeight = '30px';
+            dayHeader.style.height = '30px';
+            dayHeader.style.textAlign = 'center';
+            dayHeader.innerText = day;
+            grid.appendChild(dayHeader);
+        });
+
+        const firstDay = new Date(displayYear, displayMonth, 1).getDay();
+        const daysInMonth = new Date(displayYear, displayMonth + 1, 0).getDate();
+
+        // Empty cells for first week
+        for (let i = 0; i < firstDay; i++) {
+            const empty = document.createElement('div');
+            empty.className = 'day-cell';
+            empty.style.opacity = '0.2';
+            grid.appendChild(empty);
+        }
+
+        // Days of month
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${displayYear}-${(displayMonth + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+            const cell = document.createElement('div');
+            cell.className = 'day-cell';
+            if (dateStr === selectedDateStr) cell.classList.add('selected');
+            
+            const isToday = d === today.getDate() && displayMonth === today.getMonth() && displayYear === today.getFullYear();
+            if (isToday) cell.classList.add('today');
+
+            cell.innerHTML = `<div class="day-num">${d}</div>`;
+            cell.onclick = (e) => selectDate(dateStr);
+
+            // Render Labels
+            if (schedules[dateStr]) {
+                const daySchedules = [...schedules[dateStr]].sort((a, b) => a.start.localeCompare(b.start));
+                daySchedules.forEach(item => {
+                    const label = document.createElement('div');
+                    label.className = 'schedule-label';
+                    label.innerText = `${item.start} ${item.title}`;
+                    label.onclick = (e) => {
+                        e.stopPropagation();
+                        openEdit(dateStr, item.id);
+                    };
+                    cell.appendChild(label);
+                });
+            }
+
+            grid.appendChild(cell);
+        }
+    }
+
+    function changeMonth(diff) {
+        displayedDate.setMonth(displayedDate.getMonth() + diff);
+        renderCalendar();
+    }
+
+    function selectDate(dateStr) {
+        selectedDateStr = dateStr;
+        document.getElementById('selectedDateDisplay').innerText = `SELECTED: ${dateStr}`;
+        resetForm();
+        renderCalendar();
+    }
+
+    function resetForm() {
+        document.getElementById('editId').value = '';
+        document.getElementById('titleInput').value = '';
+        document.getElementById('startTime').value = '10:00';
+        document.getElementById('endTime').value = '11:00';
+        document.getElementById('memoInput').value = '';
+        document.getElementById('saveBtn').innerText = 'SAVE ENTRY';
+        document.getElementById('deleteBtn').style.display = 'none';
+    }
+
+    function openEdit(dateStr, id) {
+        selectedDateStr = dateStr;
+        const entry = schedules[dateStr].find(i => i.id === id);
+        if (!entry) return;
+
+        document.getElementById('selectedDateDisplay').innerText = `EDITING: ${dateStr}`;
+        document.getElementById('editId').value = id;
+        document.getElementById('titleInput').value = entry.title;
+        document.getElementById('startTime').value = entry.start;
+        document.getElementById('endTime').value = entry.end;
+        document.getElementById('memoInput').value = entry.memo;
+        
+        document.getElementById('saveBtn').innerText = 'UPDATE ENTRY';
+        document.getElementById('deleteBtn').style.display = 'block';
+        renderCalendar();
+    }
+
+    function saveEntry() {
+        if (!selectedDateStr) return alert('日付を選択してください');
+        const title = document.getElementById('titleInput').value;
+        if (!title) return alert('タイトルを入力してください');
+
+        const entry = {
+            id: document.getElementById('editId').value || Date.now().toString(),
+            title: title,
+            start: document.getElementById('startTime').value,
+            end: document.getElementById('endTime').value,
+            memo: document.getElementById('memoInput').value
+        };
+
+        if (!schedules[selectedDateStr]) schedules[selectedDateStr] = [];
+
+        const editId = document.getElementById('editId').value;
+        if (editId) {
+            const index = schedules[selectedDateStr].findIndex(i => i.id === editId);
+            schedules[selectedDateStr][index] = entry;
+        } else {
+            schedules[selectedDateStr].push(entry);
+        }
+
+        saveToLocal();
+        resetForm();
+        renderCalendar();
+    }
+
+    function deleteEntry() {
+        const id = document.getElementById('editId').value;
+        if (!id || !selectedDateStr) return;
+
+        schedules[selectedDateStr] = schedules[selectedDateStr].filter(i => i.id !== id);
+        if (schedules[selectedDateStr].length === 0) delete schedules[selectedDateStr];
+
+        saveToLocal();
+        resetForm();
+        renderCalendar();
+    }
+
+    function saveToLocal() {
+        localStorage.setItem('gaming_calendar_data', JSON.stringify(schedules));
+    }
+
+    async function exportPNG() {
+        const target = document.getElementById('capture-area');
+        // 一時的にボタンなどを非表示にする（必要な場合）
+        const canvas = await html2canvas(target, {
+            backgroundColor: '#0b0e14',
+            scale: 2 // 高画質化
+        });
+        const link = document.createElement('a');
+        link.download = `calendar_${displayedDate.getFullYear()}_${displayedDate.getMonth()+1}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+
+    init();
+</script>
+
+</body>
+</html>
