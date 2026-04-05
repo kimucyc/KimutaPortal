@@ -6,145 +6,225 @@
     <title>お散歩の方向わかるくん</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: sans-serif; text-align: center; margin: 0; padding: 10px; background-color: #f9f9f9; }
-        h1 { font-size: 1.5em; color: #333; }
-        #map { height: 60vh; width: 100%; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1; }
+        body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f9f9f9; overflow: hidden; }
+        
+        /* マップ画面のスタイル */
+        #map-view { padding: 10px; text-align: center; height: 100vh; display: flex; flex-direction: column; }
+        h1 { font-size: 1.5em; color: #333; margin-top: 10px;}
+        #map { flex-grow: 1; width: 100%; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1; min-height: 50vh; }
         .panel { margin-top: 15px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         #result { font-size: 1.1em; font-weight: bold; margin-bottom: 15px; color: #555; }
-        .highlight { color: #e74c3c; font-size: 1.4em; }
-        button { padding: 12px 24px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; box-shadow: 0 3px 0 #2980b9; transition: 0.1s; width: 100%; max-width: 300px; }
-        button:active { transform: translateY(3px); box-shadow: none; }
-        button:disabled { background: #bdc3c7; box-shadow: 0 3px 0 #95a5a6; cursor: not-allowed; }
+        button.action-btn { padding: 15px 24px; font-size: 1.2em; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #2980b9; transition: 0.1s; width: 100%; }
+        button.action-btn:active { transform: translateY(4px); box-shadow: none; }
+        button.action-btn:disabled { background: #bdc3c7; box-shadow: 0 4px 0 #95a5a6; cursor: not-allowed; }
+
+        /* コンパス画面のスタイル */
+        #compass-view { display: none; height: 100vh; width: 100vw; flex-direction: column; justify-content: center; align-items: center; background-color: #ecf0f1; position: relative; }
+        
+        /* 矢印のデザイン */
+        #arrow-container { width: 250px; height: 250px; display: flex; justify-content: center; align-items: center; transition: transform 0.2s ease-out; }
+        #arrow-svg { width: 100%; height: 100%; fill: #e74c3c; }
+        
+        /* 距離表示 */
+        #compass-distance { margin-top: 40px; font-size: 3em; font-weight: bold; color: #2c3e50; }
+        .unit { font-size: 0.5em; color: #7f8c8d; }
+
+        /* ハンバーガーメニューとメニュー本体 */
+        #hamburger { display: none; position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); cursor: pointer; z-index: 100; text-align: center; line-height: 40px; font-size: 24px; }
+        #menu { display: none; position: absolute; top: 70px; right: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 100; }
+        .menu-btn { padding: 10px 20px; font-size: 1.1em; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; }
+        
     </style>
 </head>
 <body>
 
-    <h1>🧭 お散歩の方向わかるくん</h1>
-    <p>マップをタップして目的地を決めてね！</p>
+    <div id="map-view">
+        <h1>🧭 お散歩の方向わかるくん</h1>
+        <p>マップをタップして目的地を設定</p>
+        <div id="map"></div>
+        <div class="panel">
+            <div id="result">まずは地図をタップして<br>目的地をセットしてください</div>
+            <button id="getLocationBtn" class="action-btn" disabled>現在地から方向をチェック！</button>
+        </div>
+    </div>
 
-    <div id="map"></div>
+    <div id="compass-view">
+        <div id="hamburger">☰</div>
+        <div id="menu">
+            <button id="resetBtn" class="menu-btn">目的地を再設定</button>
+        </div>
 
-    <div class="panel">
-        <div id="result">まずは地図をタップして<br>目的地をセットしてください</div>
-        <button id="getLocationBtn" disabled>現在地から方向をチェック！</button>
+        <div id="arrow-container">
+            <svg id="arrow-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="50,5 90,80 50,65 10,80" stroke="#c0392b" stroke-width="2" stroke-linejoin="round" />
+            </svg>
+        </div>
+        <div id="compass-distance">-- <span class="unit">m</span></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 地図の初期設定（大阪周辺をデフォルトのビューに設定）
-        const map = L.map('map').setView([34.7024, 135.4959], 14);
-        
-        // OpenStreetMapのタイルレイヤーを読み込み
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-        let destMarker = null;
-        let currentMarker = null;
-        let destLine = null;
+        // --- 状態管理変数 ---
         let destCoords = null;
+        let destMarker = null;
+        let watchId = null;
+        let targetBearing = 0;   // 目的地の方位角
+        let currentHeading = 0;  // スマホの向いている方角
 
-        const btn = document.getElementById('getLocationBtn');
+        // --- DOM要素 ---
+        const mapView = document.getElementById('map-view');
+        const compassView = document.getElementById('compass-view');
+        const hamburger = document.getElementById('hamburger');
+        const menu = document.getElementById('menu');
+        const arrowContainer = document.getElementById('arrow-container');
+        const distanceText = document.getElementById('compass-distance');
+        const startBtn = document.getElementById('getLocationBtn');
+        const resetBtn = document.getElementById('resetBtn');
         const resultDiv = document.getElementById('result');
 
-        // 1. マップをタップして目的地を設定する処理
+        // --- 地図の初期設定（京都周辺） ---
+        const map = L.map('map').setView([35.0116, 135.7681], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // --- マップタップ処理 ---
         map.on('click', function(e) {
             destCoords = e.latlng;
-            
             if (destMarker) map.removeLayer(destMarker);
-            if (destLine) map.removeLayer(destLine);
-            
             destMarker = L.marker(destCoords).addTo(map).bindPopup("目的地").openPopup();
             
-            btn.disabled = false;
-            resultDiv.innerHTML = "目的地をセットしました！<br>ボタンを押して現在地を取得してね。";
+            startBtn.disabled = false;
+            resultDiv.innerHTML = "目的地をセットしました！<br>ボタンを押してナビを開始してね。";
         });
 
-        // 球面三角法による直線距離の計算（ハーベサインの公式）
+        // --- 計算用関数 ---
+        // 距離(m)
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // 地球の半径 (メートル)
-            const phi1 = lat1 * Math.PI / 180;
-            const phi2 = lat2 * Math.PI / 180;
-            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
-            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
-
-            const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
-                      Math.cos(phi1) * Math.cos(phi2) *
-                      Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-            return R * c; 
+            const R = 6371e3;
+            const phi1 = lat1 * Math.PI / 180, phi2 = lat2 * Math.PI / 180;
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180, deltaLambda = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(deltaPhi/2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda/2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
-        // 方位角の計算
+        // 方位角(度)
         function getBearing(lat1, lon1, lat2, lon2) {
-            const phi1 = lat1 * Math.PI / 180;
-            const phi2 = lat2 * Math.PI / 180;
-            const lambda1 = lon1 * Math.PI / 180;
-            const lambda2 = lon2 * Math.PI / 180;
-
+            const phi1 = lat1 * Math.PI / 180, phi2 = lat2 * Math.PI / 180;
+            const lambda1 = lon1 * Math.PI / 180, lambda2 = lon2 * Math.PI / 180;
             const y = Math.sin(lambda2 - lambda1) * Math.cos(phi2);
-            const x = Math.cos(phi1) * Math.sin(phi2) -
-                      Math.sin(phi1) * Math.cos(phi2) * Math.cos(lambda2 - lambda1);
-            
-            const theta = Math.atan2(y, x);
-            const bearing = (theta * 180 / Math.PI + 360) % 360; // 0〜360度に正規化
-            return bearing;
+            const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(lambda2 - lambda1);
+            return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
         }
 
-        // 角度を8方位の日本語に変換
-        function getDirectionName(bearing) {
-            const dirs = ["北", "北東", "東", "南東", "南", "南西", "西", "北西"];
-            const index = Math.round(bearing / 45) % 8;
-            return dirs[index];
-        }
-
-        // 2. 現在地を取得し、計算を行う処理
-        btn.addEventListener('click', () => {
+        // --- コンパス開始処理（iPhoneの権限リクエストを含む） ---
+        startBtn.addEventListener('click', () => {
             if (!destCoords) return;
 
-            resultDiv.innerHTML = "📡 GPSで現在地を取得中...";
-
-            if ("geolocation" in navigator) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const currentLat = position.coords.latitude;
-                        const currentLon = position.coords.longitude;
-
-                        // 現在地マーカーを置く
-                        if (currentMarker) map.removeLayer(currentMarker);
-                        currentMarker = L.circleMarker([currentLat, currentLon], {
-                            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.8, radius: 8
-                        }).addTo(map).bindPopup("現在地").openPopup();
-
-                        // 距離と方角を計算
-                        const distance = getDistance(currentLat, currentLon, destCoords.lat, destCoords.lng);
-                        const bearing = getBearing(currentLat, currentLon, destCoords.lat, destCoords.lng);
-                        const dirName = getDirectionName(bearing);
-
-                        // 結果を表示
-                        resultDiv.innerHTML = `目的地は <span class="highlight">${dirName}</span> の方向です！<br>直線距離: 約 <span class="highlight">${Math.round(distance)} m</span>`;
-                        
-                        // 現在地から目的地への直線を引く
-                        if (destLine) map.removeLayer(destLine);
-                        destLine = L.polyline([[currentLat, currentLon], [destCoords.lat, destCoords.lng]], {
-                            color: '#3498db', dashArray: '5, 10', weight: 3
-                        }).addTo(map);
-
-                        // 両方のピンが画面に収まるようにズームを自動調整
-                        map.fitBounds(L.latLngBounds([currentLat, currentLon], destCoords), {padding: [30, 30]});
-                    },
-                    (error) => {
-                        let errorMsg = "位置情報の取得に失敗しました。";
-                        if (error.code === 1) errorMsg = "位置情報の利用が許可されていません。スマホの設定を確認してください。";
-                        resultDiv.innerHTML = `<span style="color:red;">${errorMsg}</span>`;
-                    },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
+            // iOS 13以降のデバイスセンサー許可リクエスト
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                            startTracking();
+                        } else {
+                            alert("コンパスの利用が許可されませんでした。iPhoneの「設定」>「Safari」からモーションセンサーのアクセスを許可してください。");
+                        }
+                    })
+                    .catch(console.error);
             } else {
-                resultDiv.innerHTML = "お使いのブラウザはGPSに対応していません。";
+                // iOS13未満、またはAndroid等
+                window.addEventListener('deviceorientationabsolute', handleOrientation);
+                window.addEventListener('deviceorientation', handleOrientation); // フォールバック
+                startTracking();
             }
         });
+
+        // --- ナビゲーション処理 ---
+        function startTracking() {
+            // 画面切り替え
+            mapView.style.display = 'none';
+            compassView.style.display = 'flex';
+            hamburger.style.display = 'block';
+
+            if (!("geolocation" in navigator)) {
+                alert("GPSがサポートされていません。");
+                return;
+            }
+
+            // watchPositionで現在地を継続的に取得
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const currentLat = position.coords.latitude;
+                    const currentLon = position.coords.longitude;
+
+                    const distance = getDistance(currentLat, currentLon, destCoords.lat, destCoords.lng);
+                    targetBearing = getBearing(currentLat, currentLon, destCoords.lat, destCoords.lng);
+
+                    // 50m単位に丸める処理
+                    let dist50 = Math.round(distance / 50) * 50;
+                    if (distance < 25) {
+                        distanceText.innerHTML = `到着！`;
+                    } else {
+                        distanceText.innerHTML = `約 ${dist50} <span class="unit">m</span>`;
+                    }
+
+                    updateArrow();
+                },
+                (error) => {
+                    console.error("GPS Error:", error);
+                },
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+            );
+        }
+
+        // --- スマホの向きを取得 ---
+        function handleOrientation(event) {
+            if (event.webkitCompassHeading) {
+                // iPhoneの場合はwebkitCompassHeading（北が0度）が最も正確
+                currentHeading = event.webkitCompassHeading;
+            } else if (event.alpha !== null) {
+                // Android用のアブソリュート方向の計算（機種によって挙動が異なる場合があります）
+                currentHeading = 360 - event.alpha;
+            }
+            updateArrow();
+        }
+
+        // --- 矢印の回転を更新 ---
+        function updateArrow() {
+            // 目的地の方位角からスマホが向いている方位角を引くと、画面上の矢印が向くべき角度が出る
+            let arrowRotation = targetBearing - currentHeading;
+            arrowContainer.style.transform = `rotate(${arrowRotation}deg)`;
+        }
+
+        // --- メニューの制御 ---
+        hamburger.addEventListener('click', () => {
+            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        });
+
+        // 目的地の再設定（マップに戻る）
+        resetBtn.addEventListener('click', () => {
+            // 追跡とセンサーを停止
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            window.removeEventListener('deviceorientation', handleOrientation);
+            window.removeEventListener('deviceorientationabsolute', handleOrientation);
+
+            // 画面を戻す
+            compassView.style.display = 'none';
+            hamburger.style.display = 'none';
+            menu.style.display = 'none';
+            mapView.style.display = 'flex';
+            
+            // マップの表示がおかしくなるのを防ぐためにリサイズを発火
+            setTimeout(() => map.invalidateSize(), 100);
+            
+            resultDiv.innerHTML = "目的地を再設定してください。";
+            startBtn.disabled = true;
+            if (destMarker) map.removeLayer(destMarker);
+            destCoords = null;
+        });
+
     </script>
 </body>
 </html>
