@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>お散歩の方向わかるくん</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: sans-serif; text-align: center; margin: 0; padding: 10px; background-color: #f9f9f9; }
+        h1 { font-size: 1.5em; color: #333; }
+        #map { height: 60vh; width: 100%; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1; }
+        .panel { margin-top: 15px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #result { font-size: 1.1em; font-weight: bold; margin-bottom: 15px; color: #555; }
+        .highlight { color: #e74c3c; font-size: 1.4em; }
+        button { padding: 12px 24px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; box-shadow: 0 3px 0 #2980b9; transition: 0.1s; width: 100%; max-width: 300px; }
+        button:active { transform: translateY(3px); box-shadow: none; }
+        button:disabled { background: #bdc3c7; box-shadow: 0 3px 0 #95a5a6; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <h1>🧭 お散歩の方向わかるくん</h1>
+    <p>マップをタップして目的地を決めてね！</p>
+
+    <div id="map"></div>
+
+    <div class="panel">
+        <div id="result">まずは地図をタップして<br>目的地をセットしてください</div>
+        <button id="getLocationBtn" disabled>現在地から方向をチェック！</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 地図の初期設定（大阪周辺をデフォルトのビューに設定）
+        const map = L.map('map').setView([34.7024, 135.4959], 14);
+        
+        // OpenStreetMapのタイルレイヤーを読み込み
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        let destMarker = null;
+        let currentMarker = null;
+        let destLine = null;
+        let destCoords = null;
+
+        const btn = document.getElementById('getLocationBtn');
+        const resultDiv = document.getElementById('result');
+
+        // 1. マップをタップして目的地を設定する処理
+        map.on('click', function(e) {
+            destCoords = e.latlng;
+            
+            if (destMarker) map.removeLayer(destMarker);
+            if (destLine) map.removeLayer(destLine);
+            
+            destMarker = L.marker(destCoords).addTo(map).bindPopup("目的地").openPopup();
+            
+            btn.disabled = false;
+            resultDiv.innerHTML = "目的地をセットしました！<br>ボタンを押して現在地を取得してね。";
+        });
+
+        // 球面三角法による直線距離の計算（ハーベサインの公式）
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // 地球の半径 (メートル)
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+                      Math.cos(phi1) * Math.cos(phi2) *
+                      Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c; 
+        }
+
+        // 方位角の計算
+        function getBearing(lat1, lon1, lat2, lon2) {
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const lambda1 = lon1 * Math.PI / 180;
+            const lambda2 = lon2 * Math.PI / 180;
+
+            const y = Math.sin(lambda2 - lambda1) * Math.cos(phi2);
+            const x = Math.cos(phi1) * Math.sin(phi2) -
+                      Math.sin(phi1) * Math.cos(phi2) * Math.cos(lambda2 - lambda1);
+            
+            const theta = Math.atan2(y, x);
+            const bearing = (theta * 180 / Math.PI + 360) % 360; // 0〜360度に正規化
+            return bearing;
+        }
+
+        // 角度を8方位の日本語に変換
+        function getDirectionName(bearing) {
+            const dirs = ["北", "北東", "東", "南東", "南", "南西", "西", "北西"];
+            const index = Math.round(bearing / 45) % 8;
+            return dirs[index];
+        }
+
+        // 2. 現在地を取得し、計算を行う処理
+        btn.addEventListener('click', () => {
+            if (!destCoords) return;
+
+            resultDiv.innerHTML = "📡 GPSで現在地を取得中...";
+
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const currentLat = position.coords.latitude;
+                        const currentLon = position.coords.longitude;
+
+                        // 現在地マーカーを置く
+                        if (currentMarker) map.removeLayer(currentMarker);
+                        currentMarker = L.circleMarker([currentLat, currentLon], {
+                            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.8, radius: 8
+                        }).addTo(map).bindPopup("現在地").openPopup();
+
+                        // 距離と方角を計算
+                        const distance = getDistance(currentLat, currentLon, destCoords.lat, destCoords.lng);
+                        const bearing = getBearing(currentLat, currentLon, destCoords.lat, destCoords.lng);
+                        const dirName = getDirectionName(bearing);
+
+                        // 結果を表示
+                        resultDiv.innerHTML = `目的地は <span class="highlight">${dirName}</span> の方向です！<br>直線距離: 約 <span class="highlight">${Math.round(distance)} m</span>`;
+                        
+                        // 現在地から目的地への直線を引く
+                        if (destLine) map.removeLayer(destLine);
+                        destLine = L.polyline([[currentLat, currentLon], [destCoords.lat, destCoords.lng]], {
+                            color: '#3498db', dashArray: '5, 10', weight: 3
+                        }).addTo(map);
+
+                        // 両方のピンが画面に収まるようにズームを自動調整
+                        map.fitBounds(L.latLngBounds([currentLat, currentLon], destCoords), {padding: [30, 30]});
+                    },
+                    (error) => {
+                        let errorMsg = "位置情報の取得に失敗しました。";
+                        if (error.code === 1) errorMsg = "位置情報の利用が許可されていません。スマホの設定を確認してください。";
+                        resultDiv.innerHTML = `<span style="color:red;">${errorMsg}</span>`;
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            } else {
+                resultDiv.innerHTML = "お使いのブラウザはGPSに対応していません。";
+            }
+        });
+    </script>
+</body>
+</html>
