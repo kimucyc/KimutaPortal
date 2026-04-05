@@ -14,15 +14,6 @@
       z-index: 10;
     }
   </style>
-  
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/"
-      }
-    }
-  </script>
 </head>
 <body>
 
@@ -32,10 +23,10 @@
 </div>
 
 <script type="module">
-// Import Mapのおかげで、パスをシンプルに書けるようになり、内部依存のエラーも解消されます
-import * as THREE from 'three';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+// importmapを削除し、代わりに内部依存を自動解決する esm.sh CDN を直接指定します
+import * as THREE from 'https://esm.sh/three@0.160.0';
+import { FBXLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/FBXLoader.js';
+import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
 let scene, camera, renderer, controls;
 let currentModel;
