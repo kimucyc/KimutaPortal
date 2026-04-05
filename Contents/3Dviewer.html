@@ -2,45 +2,91 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FBX Free Camera Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FBX Mobile Viewer</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             background-color: #222;
+            /* スワイプによるブラウザのデフォルト挙動（更新や戻る）を無効化 */
+            touch-action: none; 
+            user-select: none;
+            -webkit-user-select: none;
         }
+        
+        /* UIと説明文 */
         #ui-layer {
             position: absolute;
-            top: 20px;
+            top: 10px;
             width: 100%;
             text-align: center;
             color: #fff;
             font-family: sans-serif;
             pointer-events: none;
             text-shadow: 1px 1px 2px #000;
+            z-index: 10;
         }
-        #crosshair {
+        #ui-layer p { margin: 5px 0; font-size: 14px; }
+
+        /* バーチャルジョイスティックの見た目 */
+        #joystick-base {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 10px;
-            height: 10px;
-            background-color: rgba(255, 255, 255, 0.5);
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            display: none; /* タッチ時のみ表示 */
             transform: translate(-50%, -50%);
             pointer-events: none;
-            display: none;
+            z-index: 20;
         }
+        #joystick-stick {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            display: none; /* タッチ時のみ表示 */
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        /* 上下移動ボタン */
+        .v-btn {
+            position: absolute;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            z-index: 30;
+            cursor: pointer;
+        }
+        .v-btn:active { background: rgba(255, 255, 255, 0.5); }
+        #btn-up { bottom: 90px; }
+        #btn-down { bottom: 20px; }
     </style>
 </head>
 <body>
     <div id="ui-layer">
-        <h2>FBX Viewer</h2>
-        <p>画面をクリックして操作開始 (ESCキーで解除)</p>
-        <p>W A S D : 前後左右の移動 | Space : 上昇 | Shift : 下降 | マウス : 視点移動</p>
+        <p>左半分：移動 (ジョイスティック) | 右半分：視点移動 (スワイプ)</p>
     </div>
-    <div id="crosshair"></div>
+
+    <div id="joystick-base"></div>
+    <div id="joystick-stick"></div>
+
+    <div id="btn-up" class="v-btn">UP</div>
+    <div id="btn-down" class="v-btn">DWN</div>
 
     <script type="importmap">
         {
@@ -54,128 +100,210 @@
     <script type="module">
         import * as THREE from 'three';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
-        // 1. 基本セットアップ（シーン、カメラ、レンダラー）
+        // 1. 基本セットアップ
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x333344);
         scene.fog = new THREE.Fog(0x333344, 10, 500);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(0, 5, 10);
+        // カメラの回転順序をYXZに指定（FPS視点の計算で破綻しないようにするため）
+        camera.rotation.order = 'YXZ';
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        // 2. 照明の設定
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
         hemiLight.position.set(0, 200, 0);
         scene.add(hemiLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-        dirLight.position.set(0, 200, 100);
-        dirLight.castShadow = true;
-        scene.add(dirLight);
-
-        // 空間の目安となるグリッドと軸を表示
         const gridHelper = new THREE.GridHelper(100, 100);
         scene.add(gridHelper);
-        const axesHelper = new THREE.AxesHelper(5);
-        scene.add(axesHelper);
 
-        // 3. FBXモデルの読み込み
+        // 2. FBXモデルの読み込み
         const loader = new FBXLoader();
         // ★ ここを自身のFBXファイル名に変更してください ★
-        loader.load('model/room01.fbx', function (object) {
-            // モデルのスケール調整（FBXは出力元によってスケールが極端な場合があるため）
+        loader.load('model.fbx', function (object) {
             object.scale.set(0.01, 0.01, 0.01); 
             scene.add(object);
-            console.log('FBXの読み込みに成功しました');
-        }, undefined, function (error) {
-            console.error('FBXの読み込みエラー:', error);
         });
 
-        // 4. コントロールの設定（PointerLockControls）
-        const controls = new PointerLockControls(camera, document.body);
-        const crosshair = document.getElementById('crosshair');
-        const uiLayer = document.getElementById('ui-layer');
+        // 3. 操作用変数の定義
+        const moveState = { x: 0, y: 0, up: false, down: false };
+        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+        const PI_2 = Math.PI / 2;
+        
+        const moveSpeed = 15.0; // 移動速度
+        const lookSpeed = 0.005; // 視点移動の感度
 
-        document.body.addEventListener('click', () => {
-            controls.lock();
-        });
+        // --- スマホ用タッチコントロール ---
+        let joystickTouchId = null;
+        let lookTouchId = null;
+        let joystickOrigin = { x: 0, y: 0 };
+        let lastLookPos = { x: 0, y: 0 };
+        const maxJoyRadius = 50;
 
-        controls.addEventListener('lock', () => {
-            uiLayer.style.display = 'none';
-            crosshair.style.display = 'block';
-        });
+        const jBase = document.getElementById('joystick-base');
+        const jStick = document.getElementById('joystick-stick');
 
-        controls.addEventListener('unlock', () => {
-            uiLayer.style.display = 'block';
-            crosshair.style.display = 'none';
-        });
-        scene.add(controls.getObject());
+        // タッチ開始時
+        document.addEventListener('touchstart', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                
+                // 上下ボタンに触れた場合は無視
+                if (t.target.classList.contains('v-btn')) continue;
 
-        // 5. キーボード入力による移動ロジック
-        const moveState = { forward: false, backward: false, left: false, right: false, up: false, down: false };
-        const velocity = new THREE.Vector3();
-        const direction = new THREE.Vector3();
-        const speed = 50.0; // 移動速度
-
-        document.addEventListener('keydown', (event) => {
-            switch (event.code) {
-                case 'KeyW': moveState.forward = true; break;
-                case 'KeyA': moveState.left = true; break;
-                case 'KeyS': moveState.backward = true; break;
-                case 'KeyD': moveState.right = true; break;
-                case 'Space': moveState.up = true; break;
-                case 'ShiftLeft':
-                case 'ShiftRight': moveState.down = true; break;
+                // 画面左半分：ジョイスティック生成
+                if (t.clientX < window.innerWidth / 2 && joystickTouchId === null) {
+                    joystickTouchId = t.identifier;
+                    joystickOrigin = { x: t.clientX, y: t.clientY };
+                    jBase.style.display = 'block';
+                    jStick.style.display = 'block';
+                    jBase.style.left = `${t.clientX}px`;
+                    jBase.style.top = `${t.clientY}px`;
+                    jStick.style.left = `${t.clientX}px`;
+                    jStick.style.top = `${t.clientY}px`;
+                } 
+                // 画面右半分：視点移動開始
+                else if (t.clientX >= window.innerWidth / 2 && lookTouchId === null) {
+                    lookTouchId = t.identifier;
+                    lastLookPos = { x: t.clientX, y: t.clientY };
+                }
             }
-        });
+        }, { passive: false });
 
-        document.addEventListener('keyup', (event) => {
-            switch (event.code) {
-                case 'KeyW': moveState.forward = false; break;
-                case 'KeyA': moveState.left = false; break;
-                case 'KeyS': moveState.backward = false; break;
-                case 'KeyD': moveState.right = false; break;
-                case 'Space': moveState.up = false; break;
-                case 'ShiftLeft':
-                case 'ShiftRight': moveState.down = false; break;
+        // タッチ移動時
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // スクロール防止
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+
+                // ジョイスティックの移動
+                if (t.identifier === joystickTouchId) {
+                    let dx = t.clientX - joystickOrigin.x;
+                    let dy = t.clientY - joystickOrigin.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // スティックの移動範囲を制限
+                    if (dist > maxJoyRadius) {
+                        dx = (dx / dist) * maxJoyRadius;
+                        dy = (dy / dist) * maxJoyRadius;
+                    }
+                    jStick.style.left = `${joystickOrigin.x + dx}px`;
+                    jStick.style.top = `${joystickOrigin.y + dy}px`;
+                    
+                    // -1.0 ～ 1.0 に正規化して移動ベクトルに適用
+                    moveState.x = dx / maxJoyRadius;
+                    moveState.y = dy / maxJoyRadius;
+                } 
+                // 視点の移動
+                else if (t.identifier === lookTouchId) {
+                    const deltaX = t.clientX - lastLookPos.x;
+                    const deltaY = t.clientY - lastLookPos.y;
+                    
+                    euler.setFromQuaternion(camera.quaternion);
+                    euler.y -= deltaX * lookSpeed;
+                    euler.x -= deltaY * lookSpeed;
+                    // 真上・真下以上は向かないように制限
+                    euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
+                    camera.quaternion.setFromEuler(euler);
+
+                    lastLookPos = { x: t.clientX, y: t.clientY };
+                }
             }
+        }, { passive: false });
+
+        // タッチ終了時（指を離した時）
+        const handleTouchEnd = (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if (t.identifier === joystickTouchId) {
+                    joystickTouchId = null;
+                    moveState.x = 0;
+                    moveState.y = 0;
+                    jBase.style.display = 'none';
+                    jStick.style.display = 'none';
+                } else if (t.identifier === lookTouchId) {
+                    lookTouchId = null;
+                }
+            }
+        };
+        document.addEventListener('touchend', handleTouchEnd);
+        document.addEventListener('touchcancel', handleTouchEnd);
+
+        // --- 上下ボタンのイベント ---
+        const btnUp = document.getElementById('btn-up');
+        const btnDown = document.getElementById('btn-down');
+        
+        // スマホ用
+        btnUp.addEventListener('touchstart', (e) => { e.preventDefault(); moveState.up = true; });
+        btnUp.addEventListener('touchend', (e) => { e.preventDefault(); moveState.up = false; });
+        btnDown.addEventListener('touchstart', (e) => { e.preventDefault(); moveState.down = true; });
+        btnDown.addEventListener('touchend', (e) => { e.preventDefault(); moveState.down = false; });
+        
+        // PC（マウスクリック）用
+        btnUp.addEventListener('mousedown', () => moveState.up = true);
+        btnUp.addEventListener('mouseup', () => moveState.up = false);
+        btnUp.addEventListener('mouseleave', () => moveState.up = false);
+        btnDown.addEventListener('mousedown', () => moveState.down = true);
+        btnDown.addEventListener('mouseup', () => moveState.down = false);
+        btnDown.addEventListener('mouseleave', () => moveState.down = false);
+
+
+        // --- PC用キーボード・マウスのフォールバック（テスト用） ---
+        let isMouseDown = false;
+        document.addEventListener('mousedown', (e) => {
+            if(e.target.classList.contains('v-btn')) return;
+            isMouseDown = true;
+        });
+        document.addEventListener('mouseup', () => isMouseDown = false);
+        document.addEventListener('mousemove', (e) => {
+            if (!isMouseDown) return;
+            euler.setFromQuaternion(camera.quaternion);
+            euler.y -= e.movementX * lookSpeed;
+            euler.x -= e.movementY * lookSpeed;
+            euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
+            camera.quaternion.setFromEuler(euler);
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyW') moveState.y = -1;
+            if (e.code === 'KeyS') moveState.y = 1;
+            if (e.code === 'KeyA') moveState.x = -1;
+            if (e.code === 'KeyD') moveState.x = 1;
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyW' || e.code === 'KeyS') moveState.y = 0;
+            if (e.code === 'KeyA' || e.code === 'KeyD') moveState.x = 0;
         });
 
-        // 6. アニメーションループ
+        // 4. アニメーションループ
         const clock = new THREE.Clock();
+        const forward = new THREE.Vector3();
+        const right = new THREE.Vector3();
 
         function animate() {
             requestAnimationFrame(animate);
-
             const delta = clock.getDelta();
 
-            if (controls.isLocked) {
-                // 摩擦（慣性）の適用
-                velocity.x -= velocity.x * 10.0 * delta;
-                velocity.z -= velocity.z * 10.0 * delta;
-                velocity.y -= velocity.y * 10.0 * delta;
+            // カメラの向いている方向（水平）を計算
+            camera.getWorldDirection(forward);
+            forward.y = 0; 
+            forward.normalize();
+            
+            // カメラの右方向（水平）を計算
+            right.copy(forward).cross(camera.up).normalize();
 
-                // 入力方向のベクトル計算
-                direction.z = Number(moveState.forward) - Number(moveState.backward);
-                direction.x = Number(moveState.right) - Number(moveState.left);
-                direction.y = Number(moveState.up) - Number(moveState.down);
-                direction.normalize(); // 斜め移動が速くならないように正規化
+            // 前後左右の移動適用（ジョイスティックの入力値に応じて進む）
+            camera.position.addScaledVector(forward, -moveState.y * moveSpeed * delta);
+            camera.position.addScaledVector(right, moveState.x * moveSpeed * delta);
 
-                if (moveState.forward || moveState.backward) velocity.z -= direction.z * speed * delta;
-                if (moveState.left || moveState.right) velocity.x -= direction.x * speed * delta;
-                if (moveState.up || moveState.down) velocity.y += direction.y * speed * delta;
-
-                // カメラの座標を更新
-                controls.moveRight(-velocity.x * delta);
-                controls.moveForward(-velocity.z * delta);
-                controls.getObject().position.y += velocity.y * delta; // グローバルY軸での上下移動
-            }
+            // 上下ボタンによる移動適用
+            if (moveState.up) camera.position.y += moveSpeed * delta;
+            if (moveState.down) camera.position.y -= moveSpeed * delta;
 
             renderer.render(scene, camera);
         }
