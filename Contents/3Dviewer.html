@@ -126,7 +126,7 @@
         // 2. FBXモデルの読み込み
         const loader = new FBXLoader();
         // ★ ここを自身のFBXファイル名に変更してください ★
-        loader.load('model.fbx', function (object) {
+        loader.load('model/room01.fbx', function (object) {
             object.scale.set(0.01, 0.01, 0.01); 
             scene.add(object);
         });
