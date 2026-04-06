@@ -4,161 +4,219 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>きむたポータル</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Zen Maru Gothic"', 'sans-serif'],
+                    },
+                    colors: {
+                        nintendoBlue: '#00a8e8',
+                        nintendoRed: '#e60012',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        /* 全体のスタイル */
-        body {
-            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
-            background-color: #f4f7f6;
-            margin: 0;
-            padding: 0;
-            color: #333;
+        /* スクロールバーのデザインを任天堂風に（細く丸く） */
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f0f5f9;
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #00a8e8;
         }
 
-        /* ヘッダーのスタイル */
-        header {
-            background-color: #2c3e50;
-            color: #ffffff;
-            padding: 30px 20px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        header h1 {
-            margin: 0;
-            font-size: 2rem;
-            letter-spacing: 2px;
-        }
-        header p {
-            margin: 10px 0 0;
-            font-size: 1rem;
-            color: #bdc3c7;
-        }
+        /* 横スクロール用（天気） */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* メインコンテンツのコンテナ */
-        .container {
-            max-width: 1200px;
-            margin: 40px auto;
-            padding: 0 20px;
+        /* カードのホバーエフェクト */
+        .game-card {
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
         }
-
-        /* カードを並べるグリッドレイアウト */
-        .card-grid {
-            display: grid;
-            /* 画面幅に合わせてカードの列数を自動調整（最小幅300px） */
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 24px;
-        }
-
-        /* カード本体のスタイル */
-        .card {
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            overflow: hidden;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-        }
-
-        /* サムネイル画像 */
-        .card img {
-            width: 100%;
-            height: 180px;
-            object-fit: cover; /* 画像の縦横比を維持しつつ枠を埋める */
-            background-color: #e0e0e0;
-            display: block;
-        }
-
-        /* カード内のテキストエリア */
-        .card-content {
-            padding: 20px;
-        }
-
-        /* タイトルとリンク */
-        .card-title {
-            margin: 0 0 10px;
-            font-size: 1.25rem;
-        }
-        .card-title a {
-            text-decoration: none;
-            color: #2980b9;
-            transition: color 0.2s;
-        }
-        .card-title a:hover {
-            color: #3498db;
-            text-decoration: underline;
-        }
-
-        /* 概要テキスト */
-        .card-desc {
-            margin: 0;
-            color: #666;
-            font-size: 0.95rem;
-            line-height: 1.6;
+        .game-card:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 12px 24px rgba(0, 168, 232, 0.15);
         }
     </style>
 </head>
-<body>
+<body class="bg-[#f0f5f9] text-gray-800 h-screen flex flex-col font-sans overflow-hidden">
 
-    <header>
-        <h1>きむたポータル</h1>
-        <p>作成したネタ一覧</p>
+    <header class="bg-white shadow-sm py-4 px-6 text-center rounded-b-[2rem] mx-6 mt-0 border-b-4 border-blue-100 z-10 shrink-0">
+        <h1 class="text-3xl font-bold text-nintendoBlue tracking-widest drop-shadow-sm">きむたポータル</h1>
+        <p class="text-sm text-gray-400 mt-1 font-medium">作成したネタ一覧</p>
     </header>
 
-    <main class="container">
-        <div class="card-grid">
+    <div class="flex-1 flex flex-col lg:flex-row w-full max-w-[1600px] mx-auto p-4 md:p-6 gap-6 overflow-hidden">
 
-            <div class="card">
-                <img src="https://via.placeholder.com/600x360/3498db/ffffff?text=WebGL+Project" alt="WebGL作品のサムネイル">
-                <div class="card-content">
-                    <h2 class="card-title"><a href="Contents/StampMaker.html" target="_blank">Stamp Maker v2</a></h2>
-                    <p class="card-desc">DiscordやSlackで使えるスタンプを簡単作成</p>
+        <aside class="hidden lg:flex flex-col w-[18%] bg-white rounded-3xl shadow-sm border border-gray-100 p-5 shrink-0 border-b-4 border-b-gray-200 overflow-y-auto custom-scroll">
+            <h2 class="text-nintendoBlue font-bold text-lg mb-4 flex items-center">
+                <span class="bg-blue-50 p-2 rounded-2xl mr-2">📌</span>お気に入りんく
+            </h2>
+            <ul class="space-y-2 font-medium text-sm text-gray-600">
+                <li><a href="https://github.com/" target="_blank" class="block py-2.5 px-3 rounded-2xl hover:bg-blue-50 hover:text-nintendoBlue transition-colors">GitHub</a></li>
+                <li><a href="https://unity.com/ja" target="_blank" class="block py-2.5 px-3 rounded-2xl hover:bg-blue-50 hover:text-nintendoBlue transition-colors">Unity Documentation</a></li>
+                <li><a href="https://igc2.jp/" target="_blank" class="block py-2.5 px-3 rounded-2xl hover:bg-blue-50 hover:text-nintendoBlue transition-colors">IGC²</a></li>
+            </ul>
+        </aside>
+
+        <main class="w-full lg:w-[40%] flex flex-col overflow-hidden">
+            <h2 class="text-nintendoBlue font-bold text-xl flex items-center px-2 mb-4 shrink-0">
+                <span class="bg-blue-50 p-2 rounded-2xl mr-2">🎮</span>アプリ一覧
+            </h2>
+            
+            <div class="flex-1 overflow-y-auto pr-2 custom-scroll">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 pb-6">
+                    <div class="game-card bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100 border-b-4 border-b-gray-200">
+                        <img src="https://via.placeholder.com/600x360/00a8e8/ffffff?text=Stamp+Maker" alt="サムネ" class="w-full h-32 object-cover">
+                        <div class="p-4">
+                            <h3 class="font-bold text-base mb-1"><a href="Contents/StampMaker.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">Stamp Maker v2</a></h3>
+                            <p class="text-gray-500 text-xs leading-relaxed">スタンプを簡単作成</p>
+                        </div>
+                    </div>
+
+                    <div class="game-card bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100 border-b-4 border-b-gray-200">
+                        <img src="https://via.placeholder.com/600x360/48c774/ffffff?text=SDGs+Stamp" alt="サムネ" class="w-full h-32 object-cover">
+                        <div class="p-4">
+                            <h3 class="font-bold text-base mb-1"><a href="Contents/SDGsMaker.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">SDGs Stamp Maker</a></h3>
+                            <p class="text-gray-500 text-xs leading-relaxed">SDGsスタンプ作成</p>
+                        </div>
+                    </div>
+
+                    <div class="game-card bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100 border-b-4 border-b-gray-200">
+                        <img src="https://via.placeholder.com/600x360/ffbc00/ffffff?text=Image+Linker" alt="サムネ" class="w-full h-32 object-cover">
+                        <div class="p-4">
+                            <h3 class="font-bold text-base mb-1"><a href="Contents/ImageVerticalLink.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">画像つなげるくん v2</a></h3>
+                            <p class="text-gray-500 text-xs leading-relaxed">画像を自由につなげる</p>
+                        </div>
+                    </div>
+
+                    <div class="game-card bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100 border-b-4 border-b-gray-200">
+                        <img src="https://via.placeholder.com/600x360/e60012/ffffff?text=MP4+to+GIF" alt="サムネ" class="w-full h-32 object-cover">
+                        <div class="p-4">
+                            <h3 class="font-bold text-base mb-1"><a href="Contents/MP4toGIF.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">MP4Gif変換</a></h3>
+                            <p class="text-gray-500 text-xs leading-relaxed">動画をGIFに変換</p>
+                        </div>
+                    </div>
+
+                    <div class="game-card bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100 border-b-4 border-b-gray-200">
+                        <img src="https://via.placeholder.com/600x360/9b59b6/ffffff?text=Walking+Dir" alt="サムネ" class="w-full h-32 object-cover">
+                        <div class="p-4">
+                            <h3 class="font-bold text-base mb-1"><a href="Contents/WalkingDirection.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">方向わかるくん</a></h3>
+                            <p class="text-gray-500 text-xs leading-relaxed">目的地までの方向を調査</p>
+                        </div>
+                    </div>
+
+                    <div class="game-card bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100 border-b-4 border-b-gray-200">
+                        <img src="https://via.placeholder.com/600x360/34495e/ffffff?text=3D+Viewer" alt="サムネ" class="w-full h-32 object-cover">
+                        <div class="p-4">
+                            <h3 class="font-bold text-base mb-1"><a href="Contents/3Dviewer.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">3Dビューア プロト</a></h3>
+                            <p class="text-gray-500 text-xs leading-relaxed">3Dモデル表示ツール</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <aside class="w-full lg:w-[42%] flex flex-col gap-6 overflow-y-auto lg:overflow-visible">
+            
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 shrink-0 border-b-4 border-b-gray-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-nintendoBlue font-bold text-xl flex items-center">
+                        <span class="bg-blue-50 p-2 rounded-2xl mr-2">⛅</span>天気 (12時間)
+                    </h2>
+                    <div class="flex bg-gray-100 rounded-full p-1 shadow-inner">
+                        <button id="tab-kyoto" onclick="switchCity('kyoto')" class="px-4 py-1 rounded-full text-sm font-bold bg-white text-nintendoBlue shadow-sm transition">京都</button>
+                        <button id="tab-osaka" onclick="switchCity('osaka')" class="px-4 py-1 rounded-full text-sm font-bold text-gray-500 hover:text-gray-800 transition">大阪</button>
+                    </div>
+                </div>
+                <div id="weather-content" class="min-h-[120px] flex items-center">
+                    <p class="w-full text-center text-gray-400 animate-pulse font-bold text-sm">取得中...</p>
                 </div>
             </div>
 
-            <div class="card">
-                <img src="https://via.placeholder.com/600x360/e74c3c/ffffff?text=VR+Research" alt="VR実験のサムネイル">
-                <div class="card-content">
-                    <h2 class="card-title"><a href="Contents/SDGsMaker.html" target="_blank">SDGs Stamp Maker</a></h2>
-                    <p class="card-desc">なんちゃってSDGsスタンプを簡単作成 持続可能な社会へ</p>
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 border-b-4 border-b-gray-200 flex-1 flex flex-col relative overflow-hidden">
+                <div class="absolute -right-6 -bottom-6 text-8xl opacity-5 transform rotate-[-15deg]">🤣</div>
+                <h2 class="text-nintendoBlue font-bold text-xl mb-4 flex items-center relative z-10">
+                    <span class="bg-blue-50 p-2 rounded-2xl mr-2">🥸</span>今日のおやじギャグ
+                </h2>
+                <div class="flex-1 flex items-center justify-center relative z-10 bg-gray-50 rounded-2xl p-6 border-2 border-dashed border-gray-200">
+                    <p id="dad-joke-text" class="text-lg font-bold text-gray-700 text-center italic">
+                        読み込み中...
+                    </p>
+                </div>
+                <div class="mt-4 text-center relative z-10">
+                    <button onclick="fetchDadJoke()" class="bg-nintendoBlue text-white font-bold py-2.5 px-8 rounded-full hover:bg-blue-500 active:transform active:translate-y-1 transition-all shadow-sm border-b-4 border-blue-600 text-sm">
+                        次を呼ぶ
+                    </button>
                 </div>
             </div>
 
-            <div class="card">
-                <img src="https://via.placeholder.com/600x360/2ecc71/ffffff?text=Storybook" alt="絵本のサムネイル">
-                <div class="card-content">
-                    <h2 class="card-title"><a href="Contents/ImageVerticalLink.html" target="_blank">画像つなげるくん v2</a></h2>
-                    <p class="card-desc">複数画像を縦横自由につなげてくれるツール</p>
-                </div>
-            </div>
+        </aside>
+    </div>
 
-            <div class="card">
-                <img src="https://via.placeholder.com/600x360/2ecc71/ffffff?text=Storybook" alt="絵本のサムネイル">
-                <div class="card-content">
-                    <h2 class="card-title"><a href="Contents/MP4toGIF.html" target="_blank">MP4Gif変換</a></h2>
-                    <p class="card-desc">MP4動画をGIFアニメに変換するツール</p>
-                </div>
-            </div>
+    <script>
+        // DadJoke API
+        async function fetchDadJoke() {
+            const jokeEl = document.getElementById('dad-joke-text');
+            jokeEl.innerHTML = '<span class="animate-pulse">考え中...</span>';
+            try {
+                const res = await fetch('https://icanhazdadjoke.com/', { headers: { 'Accept': 'application/json' } });
+                const data = await res.json();
+                jokeEl.innerText = data.joke;
+            } catch (e) { jokeEl.innerText = "Error..."; }
+        }
+        fetchDadJoke();
 
-            <div class="card">
-                <img src="https://via.placeholder.com/600x360/2ecc71/ffffff?text=Storybook" alt="絵本のサムネイル">
-                <div class="card-content">
-                    <h2 class="card-title"><a href="Contents/WalkingDirection.html" target="_blank">お散歩の方向わかるくん</a></h2>
-                    <p class="card-desc">目的地までの方向を簡単に調べられるツール</p>
-                </div>
-            </div>
+        // Weather API (Hourly Only)
+        const cities = { kyoto: { lat: 35.0116, lon: 135.7681 }, osaka: { lat: 34.6937, lon: 135.5023 } };
+        function getWeatherEmoji(code) {
+            if (code === 0) return '☀️';
+            if (code >= 1 && code <= 3) return '⛅';
+            if (code >= 51 && code <= 67) return '☔';
+            return '☁️';
+        }
 
-            <div class="card">
-                <img src="https://via.placeholder.com/600x360/2ecc71/ffffff?text=Storybook" alt="絵本のサムネイル">
-                <div class="card-content">
-                    <h2 class="card-title"><a href="Contents/3Dviewer.html" target="_blank">3Dビューア プロトタイプ</a></h2>
-                    <p class="card-desc">3Dモデルをブラウザで表示するツール (スマホ対応v2)</p>
-                </div>
-            </div>
-
-            </div>
-    </main>
-
+        async function switchCity(key) {
+            document.getElementById('tab-kyoto').className = key === 'kyoto' ? 'px-4 py-1 rounded-full text-sm font-bold bg-white text-nintendoBlue shadow-sm' : 'px-4 py-1 rounded-full text-sm font-bold text-gray-500';
+            document.getElementById('tab-osaka').className = key === 'osaka' ? 'px-4 py-1 rounded-full text-sm font-bold bg-white text-nintendoBlue shadow-sm' : 'px-4 py-1 rounded-full text-sm font-bold text-gray-500';
+            
+            const content = document.getElementById('weather-content');
+            content.innerHTML = '<p class="w-full text-center text-gray-400 animate-pulse text-sm">取得中...</p>';
+            
+            try {
+                const { lat, lon } = cities[key];
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,weathercode&timezone=Asia%2FTokyo`);
+                const data = await res.json();
+                
+                const currentHour = new Date().getHours();
+                let html = `<div class="flex overflow-x-auto gap-4 pb-2 no-scrollbar w-full">`;
+                for (let i = currentHour; i < currentHour + 12; i++) {
+                    html += `
+                        <div class="flex flex-col items-center min-w-[70px] bg-blue-50/50 rounded-2xl p-3 border border-blue-100/50">
+                            <span class="text-[10px] text-gray-400 font-bold uppercase">${data.hourly.time[i].substring(11, 16)}</span>
+                            <span class="text-2xl my-1">${getWeatherEmoji(data.hourly.weathercode[i])}</span>
+                            <span class="text-sm font-bold text-nintendoBlue">${Math.round(data.hourly.temperature_2m[i])}°</span>
+                        </div>`;
+                }
+                html += `</div>`;
+                content.innerHTML = html;
+            } catch (e) { content.innerHTML = "Error"; }
+        }
+        switchCity('kyoto');
+    </script>
 </body>
 </html>
