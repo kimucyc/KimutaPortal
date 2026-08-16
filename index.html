@@ -3,169 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>きむたポータル</title>
+    <title>きむたポータル | SYSTEM</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- スマートで洗練されたフォント（Inter & Noto Sans JP）に変更 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['"Zen Maru Gothic"', 'sans-serif'],
+                        sans: ['Inter', '"Noto Sans JP"', 'sans-serif'],
                     },
                     colors: {
-                        nintendoBlue: '#00a8e8',
-                        nintendoRed: '#e60012',
+                        brand: '#F6890A',    // アクセントのネオンオレンジ
+                        bgDark: '#0a0a0a',   // 一番深い背景黒
+                        cardDark: '#121212', // カードの背景（わずかに明るい黒）
+                        borderDark: '#262626'// 極細ボーダー用のグレー
                     }
                 }
             }
         }
     </script>
     <style>
-        /* スクロールバーのデザインを任天堂風に（細く丸く） */
+        /* スクロールバーをダーク＆スリムに */
         .custom-scroll::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 4px;
+            height: 4px;
         }
         .custom-scroll::-webkit-scrollbar-track {
-            background: #f0f5f9;
-            border-radius: 10px;
+            background: transparent;
         }
         .custom-scroll::-webkit-scrollbar-thumb {
-            background: #cbd5e0;
-            border-radius: 10px;
+            background: #333;
+            border-radius: 4px;
         }
         .custom-scroll::-webkit-scrollbar-thumb:hover {
-            background: #00a8e8;
+            background: #00e5ff;
         }
 
         /* 横スクロール用（天気） */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* カードのホバーエフェクト */
-        .game-card {
-            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+        /* ミニマルなホバーエフェクト（ネオンの光） */
+        .minimal-card {
+            transition: all 0.3s ease;
         }
-        .game-card:hover {
-            transform: translateY(-4px) scale(1.02);
-            box-shadow: 0 8px 16px rgba(0, 168, 232, 0.15);
+        .minimal-card:hover {
+            border-color: #00e5ff;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.1);
+            transform: translateY(-2px);
         }
     </style>
 </head>
-<!-- スマホでは全体スクロール(min-h-screen)、PC(lg)では固定(h-screen overflow-hidden) -->
-<body class="bg-[#f0f5f9] text-gray-800 min-h-screen lg:h-screen flex flex-col font-sans lg:overflow-hidden">
+<body class="bg-bgDark text-gray-300 min-h-screen lg:h-screen flex flex-col font-sans lg:overflow-hidden selection:bg-brand selection:text-black">
 
-    <header class="bg-white shadow-sm py-4 px-6 text-center rounded-b-[2rem] mx-6 mt-0 border-b-4 border-blue-100 z-10 shrink-0">
-        <h1 class="text-3xl font-bold text-nintendoBlue tracking-widest drop-shadow-sm">きむたポータル</h1>
-        <p class="text-sm text-gray-400 mt-1 font-medium">作成したネタ一覧</p>
+    <!-- ヘッダーも境界線のみのフラットデザインに -->
+    <header class="bg-bgDark border-b border-borderDark py-5 px-6 text-center z-10 shrink-0">
+        <h1 class="text-2xl lg:text-3xl font-light text-white tracking-[0.2em] uppercase">
+            <span class="text-brand font-bold">KIMUTA</span>_PORTAL
+        </h1>
+        <p class="text-xs text-gray-500 mt-2 font-mono tracking-widest">WORKSPACE / CREATIONS</p>
     </header>
 
-    <!-- Gridレイアウトを採用（スマホ:1列、PC:2列） -->
     <div class="flex-1 w-full max-w-[1200px] mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:overflow-hidden content-start lg:content-stretch">
 
         <!-- ================= 天気（スマホ: 1番目 / PC: 右上） ================= -->
-        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 border-b-4 border-b-gray-200 order-1 lg:order-2 flex flex-col shrink-0">
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-nintendoBlue font-bold text-lg flex items-center">
-                    <span class="bg-blue-50 p-1.5 rounded-2xl mr-2 text-sm">⛅</span>天気 (12H)
+        <div class="bg-cardDark border border-borderDark rounded-lg p-4 order-1 lg:order-2 flex flex-col shrink-0">
+            <div class="flex items-center justify-between mb-3 border-b border-borderDark pb-2">
+                <h2 class="text-white font-medium text-sm tracking-wider flex items-center">
+                    <span class="text-brand mr-2">/</span> METEO
                 </h2>
-                <div class="flex bg-gray-100 rounded-full p-1 shadow-inner">
-                    <button id="tab-kyoto" onclick="switchCity('kyoto')" class="px-3 py-1 rounded-full text-xs font-bold bg-white text-nintendoBlue shadow-sm transition">京都</button>
-                    <button id="tab-osaka" onclick="switchCity('osaka')" class="px-3 py-1 rounded-full text-xs font-bold text-gray-500 hover:text-gray-800 transition">大阪</button>
+                <!-- タブもダークでミニマルに -->
+                <div class="flex space-x-2">
+                    <button id="tab-kyoto" onclick="switchCity('kyoto')" class="px-3 py-1 rounded text-xs font-medium bg-borderDark text-brand transition">KYOTO</button>
+                    <button id="tab-osaka" onclick="switchCity('osaka')" class="px-3 py-1 rounded text-xs font-medium text-gray-500 hover:text-gray-300 transition">OSAKA</button>
                 </div>
             </div>
-            <!-- 高さを約70%に縮小 -->
-            <div id="weather-content" class="min-h-[80px] flex items-center">
-                <p class="w-full text-center text-gray-400 animate-pulse font-bold text-sm">取得中...</p>
+            <div id="weather-content" class="min-h-[70px] flex items-center">
+                <p class="w-full text-center text-gray-500 animate-pulse font-mono text-xs">LOADING DATA...</p>
             </div>
         </div>
 
-        <!-- ================= アプリ一覧（スマホ: 2番目 / PC: 左カラム全高） ================= -->
+        <!-- ================= アプリ一覧（スマホ: 2番目 / PC: 左カラム） ================= -->
         <main class="w-full flex flex-col order-2 lg:order-1 lg:row-span-2 lg:overflow-hidden">
-            <h2 class="text-nintendoBlue font-bold text-xl flex items-center px-2 mb-4 shrink-0">
-                <span class="bg-blue-50 p-2 rounded-2xl mr-2">🎮</span>アプリ一覧
-            </h2>
+            <div class="flex items-center mb-4 px-1">
+                <h2 class="text-white font-medium text-sm tracking-wider flex items-center uppercase">
+                    <span class="text-brand mr-2">/</span> Applications
+                </h2>
+                <div class="ml-4 h-[1px] bg-borderDark flex-1"></div>
+            </div>
             
             <div class="flex-1 lg:overflow-y-auto pr-2 custom-scroll">
-                <!-- 常に2列 (grid-cols-2) -->
-                <div class="grid grid-cols-2 gap-3 lg:gap-5 pb-6">
+                <div class="grid grid-cols-2 gap-3 lg:gap-4 pb-6">
                     
-                    <!-- サムネ削除＆パディング調整 -->
-                    <div class="game-card bg-white rounded-2xl shadow-sm border border-gray-100 border-b-4 border-b-gray-200">
-                        <div class="p-3 lg:p-4">
-                            <h3 class="font-bold text-sm lg:text-base mb-1 line-clamp-1"><a href="Contents/StampMaker.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">Stamp Maker v2</a></h3>
-                            <p class="text-gray-500 text-[10px] lg:text-xs leading-relaxed line-clamp-1">スタンプを簡単作成</p>
-                        </div>
-                    </div>
+                    <a href="Contents/StampMaker.html" target="_blank" class="minimal-card block bg-cardDark border border-borderDark rounded-lg p-4 group">
+                        <h3 class="font-medium text-sm lg:text-base text-gray-200 group-hover:text-brand transition-colors mb-1 line-clamp-1">Stamp Maker v2</h3>
+                        <p class="text-gray-500 text-[10px] lg:text-xs font-light line-clamp-1">スタンプを簡単作成</p>
+                    </a>
 
-                    <div class="game-card bg-white rounded-2xl shadow-sm border border-gray-100 border-b-4 border-b-gray-200">
-                        <div class="p-3 lg:p-4">
-                            <h3 class="font-bold text-sm lg:text-base mb-1 line-clamp-1"><a href="Contents/SDGsMaker.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">SDGs Stamp Maker</a></h3>
-                            <p class="text-gray-500 text-[10px] lg:text-xs leading-relaxed line-clamp-1">SDGsスタンプ作成</p>
-                        </div>
-                    </div>
+                    <a href="Contents/SDGsMaker.html" target="_blank" class="minimal-card block bg-cardDark border border-borderDark rounded-lg p-4 group">
+                        <h3 class="font-medium text-sm lg:text-base text-gray-200 group-hover:text-brand transition-colors mb-1 line-clamp-1">SDGs Stamp Maker</h3>
+                        <p class="text-gray-500 text-[10px] lg:text-xs font-light line-clamp-1">SDGsスタンプ作成</p>
+                    </a>
 
-                    <div class="game-card bg-white rounded-2xl shadow-sm border border-gray-100 border-b-4 border-b-gray-200">
-                        <div class="p-3 lg:p-4">
-                            <h3 class="font-bold text-sm lg:text-base mb-1 line-clamp-1"><a href="Contents/ImageVerticalLink.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">画像つなげるくん v2</a></h3>
-                            <p class="text-gray-500 text-[10px] lg:text-xs leading-relaxed line-clamp-1">画像を自由につなげる</p>
-                        </div>
-                    </div>
+                    <a href="Contents/ImageVerticalLink.html" target="_blank" class="minimal-card block bg-cardDark border border-borderDark rounded-lg p-4 group">
+                        <h3 class="font-medium text-sm lg:text-base text-gray-200 group-hover:text-brand transition-colors mb-1 line-clamp-1">画像つなげるくん v2</h3>
+                        <p class="text-gray-500 text-[10px] lg:text-xs font-light line-clamp-1">画像を自由につなげる</p>
+                    </a>
 
-                    <div class="game-card bg-white rounded-2xl shadow-sm border border-gray-100 border-b-4 border-b-gray-200">
-                        <div class="p-3 lg:p-4">
-                            <h3 class="font-bold text-sm lg:text-base mb-1 line-clamp-1"><a href="Contents/MP4toGIF.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">MP4Gif変換</a></h3>
-                            <p class="text-gray-500 text-[10px] lg:text-xs leading-relaxed line-clamp-1">動画をGIFに変換</p>
-                        </div>
-                    </div>
+                    <a href="Contents/MP4toGIF.html" target="_blank" class="minimal-card block bg-cardDark border border-borderDark rounded-lg p-4 group">
+                        <h3 class="font-medium text-sm lg:text-base text-gray-200 group-hover:text-brand transition-colors mb-1 line-clamp-1">MP4Gif変換</h3>
+                        <p class="text-gray-500 text-[10px] lg:text-xs font-light line-clamp-1">動画をGIFに変換</p>
+                    </a>
 
-                    <div class="game-card bg-white rounded-2xl shadow-sm border border-gray-100 border-b-4 border-b-gray-200">
-                        <div class="p-3 lg:p-4">
-                            <h3 class="font-bold text-sm lg:text-base mb-1 line-clamp-1"><a href="Contents/WalkingDirection.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">方向わかるくん</a></h3>
-                            <p class="text-gray-500 text-[10px] lg:text-xs leading-relaxed line-clamp-1">目的地までの方向を調査</p>
-                        </div>
-                    </div>
+                    <a href="Contents/WalkingDirection.html" target="_blank" class="minimal-card block bg-cardDark border border-borderDark rounded-lg p-4 group">
+                        <h3 class="font-medium text-sm lg:text-base text-gray-200 group-hover:text-brand transition-colors mb-1 line-clamp-1">方向わかるくん</h3>
+                        <p class="text-gray-500 text-[10px] lg:text-xs font-light line-clamp-1">目的地までの方向を調査</p>
+                    </a>
 
-                    <div class="game-card bg-white rounded-2xl shadow-sm border border-gray-100 border-b-4 border-b-gray-200">
-                        <div class="p-3 lg:p-4">
-                            <h3 class="font-bold text-sm lg:text-base mb-1 line-clamp-1"><a href="Contents/PokerManager.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">Poker Manager V1</a></h3>
-                            <p class="text-gray-500 text-[10px] lg:text-xs leading-relaxed line-clamp-1">Poker Manager V1</p>
-                        </div>
-                    </div>
+                    <a href="Contents/PokerManager.html" target="_blank" class="minimal-card block bg-cardDark border border-borderDark rounded-lg p-4 group">
+                        <h3 class="font-medium text-sm lg:text-base text-gray-200 group-hover:text-brand transition-colors mb-1 line-clamp-1">Poker Manager V1</h3>
+                        <p class="text-gray-500 text-[10px] lg:text-xs font-light line-clamp-1">ポーカー管理システム</p>
+                    </a>
 
-                    <div class="game-card bg-white rounded-2xl shadow-sm border border-gray-100 border-b-4 border-b-gray-200">
-                        <div class="p-3 lg:p-4">
-                            <h3 class="font-bold text-sm lg:text-base mb-1 line-clamp-1"><a href="Contents/MagazineCoverMaker.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">雑誌の表紙作るくん</a></h3>
-                            <p class="text-gray-500 text-[10px] lg:text-xs leading-relaxed line-clamp-1">雑誌の表紙作るくん</p>
-                        </div>
-                    </div>
+                    <a href="Contents/MagazineCoverMaker.html" target="_blank" class="minimal-card block bg-cardDark border border-borderDark rounded-lg p-4 group">
+                        <h3 class="font-medium text-sm lg:text-base text-gray-200 group-hover:text-brand transition-colors mb-1 line-clamp-1">雑誌の表紙作るくん</h3>
+                        <p class="text-gray-500 text-[10px] lg:text-xs font-light line-clamp-1">表紙画像ジェネレーター</p>
+                    </a>
 
-                    <div class="game-card bg-white rounded-2xl shadow-sm border border-gray-100 border-b-4 border-b-gray-200">
-                        <div class="p-3 lg:p-4">
-                            <h3 class="font-bold text-sm lg:text-base mb-1 line-clamp-1"><a href="Contents/3Dviewer.html" target="_blank" class="text-gray-800 hover:text-nintendoBlue transition">3Dビューア プロト</a></h3>
-                            <p class="text-gray-500 text-[10px] lg:text-xs leading-relaxed line-clamp-1">3Dモデル表示ツール</p>
-                        </div>
-                    </div>
+                    <a href="Contents/3Dviewer.html" target="_blank" class="minimal-card block bg-cardDark border border-borderDark rounded-lg p-4 group">
+                        <h3 class="font-medium text-sm lg:text-base text-gray-200 group-hover:text-brand transition-colors mb-1 line-clamp-1">3Dビューア プロト</h3>
+                        <p class="text-gray-500 text-[10px] lg:text-xs font-light line-clamp-1">3Dモデル表示ツール</p>
+                    </a>
 
                 </div>
             </div>
         </main>
 
         <!-- ================= ギャグ（スマホ: 3番目 / PC: 右下） ================= -->
-        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 border-b-4 border-b-gray-200 flex flex-col relative overflow-hidden order-3 lg:order-3 min-h-[220px] lg:h-full">
-            <div class="absolute -right-6 -bottom-6 text-8xl opacity-5 transform rotate-[-15deg]">🤣</div>
-            <h2 class="text-nintendoBlue font-bold text-xl mb-4 flex items-center relative z-10">
-                <span class="bg-blue-50 p-2 rounded-2xl mr-2">🥸</span>今日のおやじギャグ
-            </h2>
-            <div class="flex-1 flex items-center justify-center relative z-10 bg-gray-50 rounded-2xl p-4 border-2 border-dashed border-gray-200">
-                <p id="dad-joke-text" class="text-base lg:text-lg font-bold text-gray-700 text-center italic">
-                    読み込み中...
+        <div class="bg-cardDark border border-borderDark rounded-lg p-6 flex flex-col relative overflow-hidden order-3 lg:order-3 min-h-[220px] lg:h-full group">
+            <!-- 背景の装飾文字 -->
+            <div class="absolute -right-4 -bottom-4 text-[120px] font-serif text-white opacity-[0.02] select-none leading-none">"</div>
+            
+            <div class="flex items-center mb-4 border-b border-borderDark pb-2 relative z-10">
+                <h2 class="text-white font-medium text-sm tracking-wider flex items-center uppercase">
+                    <span class="text-brand mr-2">/</span> RANDOM_JOKE
+                </h2>
+            </div>
+
+            <div class="flex-1 flex items-center justify-center relative z-10 p-4">
+                <p id="dad-joke-text" class="text-sm lg:text-base font-light text-gray-300 text-center leading-relaxed font-serif">
+                    LOADING...
                 </p>
             </div>
+
             <div class="mt-4 text-center relative z-10 shrink-0">
-                <button onclick="fetchDadJoke()" class="bg-nintendoBlue text-white font-bold py-2 px-6 rounded-full hover:bg-blue-500 active:transform active:translate-y-1 transition-all shadow-sm border-b-4 border-blue-600 text-sm">
-                    次を呼ぶ
+                <!-- 光るアウトラインボタン -->
+                <button onclick="fetchDadJoke()" class="border border-borderDark text-gray-400 font-mono text-xs py-2 px-8 rounded hover:border-brand hover:text-brand hover:shadow-[0_0_10px_rgba(0,229,255,0.2)] transition-all bg-bgDark">
+                    GENERATE NEXT
                 </button>
             </div>
         </div>
@@ -176,18 +172,19 @@
         // DadJoke API
         async function fetchDadJoke() {
             const jokeEl = document.getElementById('dad-joke-text');
-            jokeEl.innerHTML = '<span class="animate-pulse">考え中...</span>';
+            jokeEl.innerHTML = '<span class="animate-pulse opacity-50 text-xs font-mono">REQUESTING...</span>';
             try {
                 const res = await fetch('https://icanhazdadjoke.com/', { headers: { 'Accept': 'application/json' } });
                 const data = await res.json();
-                jokeEl.innerText = data.joke;
-            } catch (e) { jokeEl.innerText = "Error..."; }
+                jokeEl.innerText = `"${data.joke}"`;
+            } catch (e) { jokeEl.innerText = "Connection failed."; }
         }
         fetchDadJoke();
 
         // Weather API
         const cities = { kyoto: { lat: 35.0116, lon: 135.7681 }, osaka: { lat: 34.6937, lon: 135.5023 } };
         function getWeatherEmoji(code) {
+            // 絵文字もダークテーマに合わせてシンプルなモノトーン系に近づけるか、そのまま使用
             if (code === 0) return '☀️';
             if (code >= 1 && code <= 3) return '⛅';
             if (code >= 51 && code <= 67) return '☔';
@@ -195,11 +192,12 @@
         }
 
         async function switchCity(key) {
-            document.getElementById('tab-kyoto').className = key === 'kyoto' ? 'px-3 py-1 rounded-full text-xs font-bold bg-white text-nintendoBlue shadow-sm' : 'px-3 py-1 rounded-full text-xs font-bold text-gray-500';
-            document.getElementById('tab-osaka').className = key === 'osaka' ? 'px-3 py-1 rounded-full text-xs font-bold bg-white text-nintendoBlue shadow-sm' : 'px-3 py-1 rounded-full text-xs font-bold text-gray-500';
+            // タブのデザイン切り替え（ダークテーマ用）
+            document.getElementById('tab-kyoto').className = key === 'kyoto' ? 'px-3 py-1 rounded text-xs font-medium bg-borderDark text-brand transition' : 'px-3 py-1 rounded text-xs font-medium text-gray-500 hover:text-gray-300 transition';
+            document.getElementById('tab-osaka').className = key === 'osaka' ? 'px-3 py-1 rounded text-xs font-medium bg-borderDark text-brand transition' : 'px-3 py-1 rounded text-xs font-medium text-gray-500 hover:text-gray-300 transition';
             
             const content = document.getElementById('weather-content');
-            content.innerHTML = '<p class="w-full text-center text-gray-400 animate-pulse text-sm">取得中...</p>';
+            content.innerHTML = '<p class="w-full text-center text-gray-500 animate-pulse font-mono text-xs">LOADING DATA...</p>';
             
             try {
                 const { lat, lon } = cities[key];
@@ -207,19 +205,18 @@
                 const data = await res.json();
                 
                 const currentHour = new Date().getHours();
-                // gapやパディングを縮小して高さを抑える
                 let html = `<div class="flex overflow-x-auto gap-2 pb-1 no-scrollbar w-full">`;
                 for (let i = currentHour; i < currentHour + 12; i++) {
                     html += `
-                        <div class="flex flex-col items-center min-w-[55px] bg-blue-50/50 rounded-xl p-2 border border-blue-100/50">
-                            <span class="text-[9px] text-gray-400 font-bold uppercase">${data.hourly.time[i].substring(11, 16)}</span>
-                            <span class="text-lg my-0.5">${getWeatherEmoji(data.hourly.weathercode[i])}</span>
-                            <span class="text-xs font-bold text-nintendoBlue">${Math.round(data.hourly.temperature_2m[i])}°</span>
+                        <div class="flex flex-col items-center min-w-[50px] p-2 bg-bgDark rounded border border-borderDark hover:border-gray-700 transition-colors">
+                            <span class="text-[9px] text-gray-500 font-mono">${data.hourly.time[i].substring(11, 16)}</span>
+                            <span class="text-base my-1 opacity-90">${getWeatherEmoji(data.hourly.weathercode[i])}</span>
+                            <span class="text-xs font-medium text-brand">${Math.round(data.hourly.temperature_2m[i])}°</span>
                         </div>`;
                 }
                 html += `</div>`;
                 content.innerHTML = html;
-            } catch (e) { content.innerHTML = "Error"; }
+            } catch (e) { content.innerHTML = `<span class="text-red-500 text-xs">Error loading data</span>`; }
         }
         switchCity('kyoto');
     </script>
