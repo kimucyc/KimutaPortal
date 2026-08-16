@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- 背景（少し丸みのある四角形）とネオンオレンジの枠線 -->
+  <rect width="128" height="128" rx="24" fill="#0a0a0a" stroke="#ff5e00" stroke-width="3"/>
+  
+  <!-- 中央の極細の境界線 -->
+  <line x1="24" y1="64" x2="104" y2="64" stroke="#262626" stroke-width="2"/>
+  
+  <!-- KIMUTA (オレンジ) -->
+  <text x="64" y="52" font-family="'Arial', sans-serif" font-size="22" font-weight="bold" fill="#ff5e00" text-anchor="middle" letter-spacing="2">KIMUTA</text>
+  
+  <!-- PORTAL (白・等幅フォントをやめて自然なゴシック体に) -->
+  <text x="64" y="88" font-family="'Arial', sans-serif" font-size="14" font-weight="normal" fill="#ffffff" text-anchor="middle" letter-spacing="3">PORTAL</text>
+  
+  <!-- 左上のサイバー風なアクセント -->
+  <circle cx="16" cy="16" r="3" fill="#ff5e00"/>
+</svg>
