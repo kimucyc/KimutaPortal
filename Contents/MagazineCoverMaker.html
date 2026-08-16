@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Magazine Cover Maker</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome (アイコン用) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Web Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=Cinzel:wght@400..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Noto+Serif+JP:wght@200..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel (ブラウザ内でJSXを変換) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* 全体的なスクロールやタッチの挙動を調整 */
+    body { margin: 0; overflow: hidden; background-color: #171717; }
+    input[type=range] { accent-color: white; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // === 設定定数 ===
+    const CANVAS_WIDTH = 1200;
+    const CANVAS_HEIGHT = 1697; // A4比率 (1:1.414)
+
+    const FONTS = [
+      { name: 'Bodoni Moda', label: 'Bodoni (モダン/高級)' },
+      { name: 'Playfair Display', label: 'Playfair (クラシック)' },
+      { name: 'Cinzel', label: 'Cinzel (シネマティック)' },
+      { name: 'Montserrat', label: 'Montserrat (スタイリッシュ)' },
+      { name: 'Noto Serif JP', label: 'Noto Serif (明朝体)' }
+    ];
+
+    const BLEND_MODES = [
+      { value: 'source-over', label: '通常 (Normal)' },
+      { value: 'overlay', label: 'オーバーレイ (Overlay)' },
+      { value: 'screen', label: 'スクリーン (Screen)' },
+      { value: 'multiply', label: '乗算 (Multiply)' },
+      { value: 'difference', label: '差分 (Difference)' },
+      { value: 'soft-light', label: 'ソフトライト (Soft Light)' }
+    ];
+
+    const FILTERS = [
+      { value: 'none', label: 'なし' },
+      { value: 'grayscale(100%)', label: 'モノクロ' },
+      { value: 'sepia(80%)', label: 'セピア' },
+      { value: 'contrast(150%) saturate(120%)', label: 'ドラマチック' },
+      { value: 'brightness(120%) contrast(110%) saturate(80%)', label: 'フェード' },
+      { value: 'hue-rotate(180deg)', label: 'サイバー' }
+    ];
+
+    const RANDOM_CATCHPHRASES = [
+      "2026年最新トレンド", "常識を覆す新しいスタイル", "THE NEW ELEGANCE",
+      "秋の最旬コレクション", "BEAUTY SECRETS", "モードの最前線へ",
+      "This Season's Must-Haves", "Reinventing the Classic", "あなたを解放する色"
+    ];
+
+    // === メインコンポーネント ===
+    function MagazineCoverMaker() {
+      const canvasRef = useRef(null);
+      const [image, setImage] = useState(null);
+      const [filter, setFilter] = useState('none');
+      const [showBarcode, setShowBarcode] = useState(true);
+      const [showTexture, setShowTexture] = useState(true);
+      const [palette, setPalette] = useState(['#ffffff', '#000000', '#ff0000', '#d4af37']);
+      
+      // スマホ長押し保存用のモーダルステート
+      const [exportDataUrl, setExportDataUrl] = useState(null);
+      
+      const [texts, setTexts] = useState([
+        { id: 1, text: 'VOUGE', font: 'Playfair Display', size: 280, color: '#ffffff', x: CANVAS_WIDTH / 2, y: 350, blendMode: 'overlay', weight: '900', isTitle: true },
+        { id: 2, text: 'OCTOBER 2026', font: 'Montserrat', size: 36, color: '#ffffff', x: CANVAS_WIDTH / 2, y: 100, blendMode: 'source-over', weight: '600' },
+        { id: 3, text: 'THE NEW ELEGANCE', font: 'Bodoni Moda', size: 64, color: '#ffffff', x: CANVAS_WIDTH / 2, y: 1300, blendMode: 'source-over', weight: '400' },
+        { id: 4, text: '常識を覆す、新しいスタイル。', font: 'Noto Serif JP', size: 42, color: '#ffffff', x: CANVAS_WIDTH / 2, y: 1400, blendMode: 'source-over', weight: '400' }
+      ]);
+
+      const [selectedTextId, setSelectedTextId] = useState(1);
+      const [isDragging, setIsDragging] = useState(false);
+      const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+      const [activeTab, setActiveTab] = useState('image');
+
+      // --- 画像アップロード処理 ---
+      const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              setImage(img);
+              extractColors(img);
+            };
+            img.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+
+      // --- カラー抽出機能 ---
+      const extractColors = (img) => {
+        const tempCanvas = document.createElement('canvas');
+        const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        tempCanvas.width = 100;
+        tempCanvas.height = 100;
+        ctx.drawImage(img, 0, 0, 100, 100);
+        const data = ctx.getImageData(0, 0, 100, 100).data;
+        
+        let r=0, g=0, b=0;
+        for(let i = 0; i < data.length; i += 4) {
+          r += data[i]; g += data[i+1]; b += data[i+2];
+        }
+        const pixels = data.length / 4;
+        const avgR = Math.floor(r/pixels);
+        const avgG = Math.floor(g/pixels);
+        const avgB = Math.floor(b/pixels);
+        const avgHex = '#' + [avgR, avgG, avgB].map(x => x.toString(16).padStart(2, '0')).join('');
+        const invHex = '#' + [255-avgR, 255-avgG, 255-avgB].map(x => x.toString(16).padStart(2, '0')).join('');
+        
+        setPalette(['#ffffff', '#000000', avgHex, invHex, '#d4af37']);
+      };
+
+      // --- 描画処理 (Canvas) ---
+      const drawCanvas = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        if (image) {
+          ctx.save();
+          ctx.filter = filter;
+          const imgRatio = image.width / image.height;
+          const canvasRatio = CANVAS_WIDTH / CANVAS_HEIGHT;
+          let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+
+          if (imgRatio > canvasRatio) {
+            drawHeight = CANVAS_HEIGHT;
+            drawWidth = image.width * (CANVAS_HEIGHT / image.height);
+            offsetX = (CANVAS_WIDTH - drawWidth) / 2;
+          } else {
+            drawWidth = CANVAS_WIDTH;
+            drawHeight = image.height * (CANVAS_WIDTH / image.width);
+            offsetY = (CANVAS_HEIGHT - drawHeight) / 2;
+          }
+          
+          ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = '#333';
+          ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+          ctx.fillStyle = '#555';
+          ctx.font = '40px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Please Upload an Image', CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
+        }
+
+        if (showTexture) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'overlay';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+          for(let i=0; i<CANVAS_HEIGHT; i+=4) ctx.fillRect(0, i, CANVAS_WIDTH, 1);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+          for(let i=0; i<CANVAS_WIDTH; i+=4) ctx.fillRect(i, 0, 1, CANVAS_HEIGHT);
+          ctx.restore();
+        }
+
+        const sortedTexts = [...texts].sort((a, b) => (a.id === selectedTextId ? 1 : -1));
+        sortedTexts.forEach(t => {
+          ctx.save();
+          ctx.globalCompositeOperation = t.blendMode || 'source-over';
+          ctx.font = `${t.weight || '400'} ${t.size}px "${t.font}"`;
+          ctx.fillStyle = t.color;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          const lines = t.text.split('\n');
+          const lineHeight = t.size * 1.2;
+          const startY = t.y - ((lines.length - 1) * lineHeight) / 2;
+
+          lines.forEach((line, index) => {
+            ctx.fillText(line, t.x, startY + (index * lineHeight));
+          });
+
+          if (t.id === selectedTextId && !exportDataUrl) {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            let maxWidth = 0;
+            lines.forEach(l => {
+                const w = ctx.measureText(l).width;
+                if(w > maxWidth) maxWidth = w;
+            });
+            const boxWidth = maxWidth + 40;
+            const boxHeight = (lines.length * lineHeight) + 20;
+            ctx.strokeRect(t.x - boxWidth/2, t.y - boxHeight/2, boxWidth, boxHeight);
+            ctx.setLineDash([]);
+          }
+          ctx.restore();
+        });
+
+        if (showBarcode) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'source-over';
+          const bcX = CANVAS_WIDTH - 280;
+          const bcY = CANVAS_HEIGHT - 150;
+          
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(bcX, bcY, 240, 100);
+          
+          ctx.fillStyle = '#000000';
+          for(let i=0; i<40; i++) {
+            const lineW = Math.random() > 0.5 ? 2 : (Math.random() > 0.8 ? 6 : 4);
+            const gap = Math.random() * 4 + 2;
+            ctx.fillRect(bcX + 15 + i*(lineW + gap), bcY + 15, lineW, 50);
+          }
+          
+          ctx.font = 'bold 16px "Montserrat", sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('9 784065 112233', bcX + 15, bcY + 85);
+          
+          ctx.font = 'bold 24px "Montserrat", sans-serif';
+          ctx.textAlign = 'right';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText('$12.99 / £9.50', CANVAS_WIDTH - 40, bcY - 20);
+          ctx.restore();
+        }
+      }, [image, filter, texts, selectedTextId, showBarcode, showTexture, exportDataUrl]);
+
+      useEffect(() => {
+        document.fonts.ready.then(() => {
+          drawCanvas();
+        });
+        const timer = setTimeout(() => drawCanvas(), 200);
+        return () => clearTimeout(timer);
+      }, [drawCanvas]);
+
+
+      // --- マウスによるドラッグ＆ドロップ処理 ---
+      const getMousePos = (e) => {
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+      };
+
+      const handlePointerDown = (e) => {
+        const pos = getMousePos(e);
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        
+        for (let i = texts.length - 1; i >= 0; i--) {
+          const t = texts[i];
+          ctx.font = `${t.weight || '400'} ${t.size}px "${t.font}"`;
+          const lines = t.text.split('\n');
+          
+          let maxWidth = 0;
+          lines.forEach(l => {
+              const w = ctx.measureText(l).width;
+              if(w > maxWidth) maxWidth = w;
+          });
+
+          const w = maxWidth;
+          const h = t.size * 1.2 * lines.length;
+          
+          if (pos.x >= t.x - w/2 && pos.x <= t.x + w/2 && pos.y >= t.y - h/2 && pos.y <= t.y + h/2) {
+            setSelectedTextId(t.id);
+            setIsDragging(true);
+            setDragOffset({ x: pos.x - t.x, y: pos.y - t.y });
+            return;
+          }
+        }
+        setSelectedTextId(null);
+      };
+
+      const handlePointerMove = (e) => {
+        if (!isDragging || selectedTextId === null) return;
+        // スマホでのスクロールを防止
+        if(e.cancelable) e.preventDefault(); 
+        
+        const pos = getMousePos(e);
+        setTexts(prev => prev.map(t => 
+          t.id === selectedTextId ? { ...t, x: pos.x - dragOffset.x, y: pos.y - dragOffset.y } : t
+        ));
+      };
+
+      const handlePointerUp = () => setIsDragging(false);
+
+      // --- UI操作ハンドラ ---
+      const updateSelectedText = (key, value) => {
+        setTexts(prev => prev.map(t => t.id === selectedTextId ? { ...t, [key]: value } : t));
+      };
+
+      const addText = () => {
+        const newId = Math.max(0, ...texts.map(t => t.id)) + 1;
+        setTexts([...texts, {
+          id: newId, text: 'New Text', font: 'Montserrat', size: 48, color: '#ffffff', 
+          x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, blendMode: 'source-over', weight: '400'
+        }]);
+        setSelectedTextId(newId);
+        setActiveTab('text');
+      };
+
+      const deleteText = () => {
+        if (selectedTextId !== null) {
+          setTexts(texts.filter(t => t.id !== selectedTextId));
+          setSelectedTextId(null);
+        }
+      };
+
+      const applyRandomCatchphrase = () => {
+        if (selectedTextId !== null) {
+          const phrase = RANDOM_CATCHPHRASES[Math.floor(Math.random() * RANDOM_CATCHPHRASES.length)];
+          updateSelectedText('text', phrase);
+        }
+      };
+
+      // --- エクスポート処理 (スマホ長押し保存対応) ---
+      const handleExport = () => {
+        const canvas = canvasRef.current;
+        const prevSelected = selectedTextId;
+        setSelectedTextId(null); // 選択枠を一時的に消す
+        
+        setTimeout(() => {
+          const dataUrl = canvas.toDataURL('image/png');
+          setExportDataUrl(dataUrl); // モーダル表示
+          setSelectedTextId(prevSelected); // 元に戻す
+        }, 100);
+      };
+
+      const selectedTextObj = texts.find(t => t.id === selectedTextId);
+
+      return (
+        <div className="flex flex-col md:flex-row h-screen bg-neutral-900 text-neutral-100 font-sans overflow-hidden">
+          
+          {/* メインプレビュー領域 */}
+          <div className="flex-1 bg-neutral-950 flex flex-col items-center justify-center p-4 relative overflow-y-auto">
+            <button 
+              onClick={handleExport}
+              className="absolute top-4 right-4 z-10 bg-white text-black px-4 py-2 rounded-full font-bold flex items-center gap-2 hover:bg-neutral-200 transition-colors shadow-lg"
+            >
+              <i className="fa-solid fa-download"></i> エクスポート
+            </button>
+
+            <div className="relative shadow-2xl ring-1 ring-white/10" style={{ maxWidth: '100%', maxHeight: '90vh', aspectRatio: '1/1.414' }}>
+              <canvas
+                ref={canvasRef}
+                width={CANVAS_WIDTH}
+                height={CANVAS_HEIGHT}
+                className="w-full h-full object-contain cursor-crosshair touch-none"
+                onMouseDown={handlePointerDown}
+                onMouseMove={handlePointerMove}
+                onMouseUp={handlePointerUp}
+                onMouseLeave={handlePointerUp}
+                onTouchStart={handlePointerDown}
+                onTouchMove={handlePointerMove}
+                onTouchEnd={handlePointerUp}
+              />
+              <div className="absolute -bottom-8 left-0 right-0 text-center text-xs text-neutral-400 pointer-events-none flex items-center justify-center gap-2">
+                <i className="fa-solid fa-arrows-up-down-left-right"></i> 文字はドラッグして移動できます
+              </div>
+            </div>
+          </div>
+
+          {/* コントロールパネル */}
+          <div className="w-full md:w-96 bg-neutral-800 border-l border-neutral-700 flex flex-col h-[50vh] md:h-full overflow-hidden shadow-xl">
+            <div className="flex border-b border-neutral-700 bg-neutral-900">
+              <button 
+                className={`flex-1 py-4 text-sm font-bold flex flex-col items-center gap-1 transition-colors ${activeTab === 'image' ? 'text-white border-b-2 border-white bg-neutral-800' : 'text-neutral-500 hover:text-neutral-300'}`}
+                onClick={() => setActiveTab('image')}
+              >
+                <i className="fa-solid fa-image text-lg"></i> 画像・効果
+              </button>
+              <button 
+                className={`flex-1 py-4 text-sm font-bold flex flex-col items-center gap-1 transition-colors ${activeTab === 'text' ? 'text-white border-b-2 border-white bg-neutral-800' : 'text-neutral-500 hover:text-neutral-300'}`}
+                onClick={() => setActiveTab('text')}
+              >
+                <i className="fa-solid fa-font text-lg"></i> テキスト編集
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              {/* 画像タブ */}
+              {activeTab === 'image' && (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
+                      <i className="fa-solid fa-image"></i> ベース画像
+                    </h3>
+                    <label className="flex items-center justify-center w-full h-24 border-2 border-dashed border-neutral-600 rounded-xl hover:border-neutral-400 hover:bg-neutral-700/50 cursor-pointer transition-colors group">
+                      <div className="text-center">
+                        <i className="fa-solid fa-upload mx-auto text-neutral-400 group-hover:text-white mb-2 text-2xl"></i>
+                        <span className="block text-sm font-medium text-neutral-300 group-hover:text-white">画像をアップロード</span>
+                      </div>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    </label>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
+                      <i className="fa-solid fa-palette"></i> フィルター
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {FILTERS.map(f => (
+                        <button
+                          key={f.value}
+                          onClick={() => setFilter(f.value)}
+                          className={`py-2 px-3 text-sm rounded-lg border transition-all ${filter === f.value ? 'bg-white text-black border-white' : 'border-neutral-600 hover:border-neutral-400 text-neutral-300'}`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-4 border-t border-neutral-700">
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
+                      <i className="fa-solid fa-gear"></i> ディテール設定
+                    </h3>
+                    <label className="flex items-center justify-between cursor-pointer p-3 bg-neutral-750 rounded-lg hover:bg-neutral-700 transition-colors">
+                      <span className="text-sm font-medium">フィルムノイズ (質感)</span>
+                      <div className="relative">
+                        <input type="checkbox" className="sr-only" checked={showTexture} onChange={(e) => setShowTexture(e.target.checked)} />
+                        <div className={`block w-10 h-6 rounded-full transition-colors ${showTexture ? 'bg-green-500' : 'bg-neutral-600'}`}></div>
+                        <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${showTexture ? 'transform translate-x-4' : ''}`}></div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center justify-between cursor-pointer p-3 bg-neutral-750 rounded-lg hover:bg-neutral-700 transition-colors">
+                      <span className="text-sm font-medium">バーコード＆価格表記</span>
+                      <div className="relative">
+                        <input type="checkbox" className="sr-only" checked={showBarcode} onChange={(e) => setShowBarcode(e.target.checked)} />
+                        <div className={`block w-10 h-6 rounded-full transition-colors ${showBarcode ? 'bg-green-500' : 'bg-neutral-600'}`}></div>
+                        <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${showBarcode ? 'transform translate-x-4' : ''}`}></div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* テキストタブ */}
+              {activeTab === 'text' && (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center mb-2">
+                       <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
+                        <i className="fa-solid fa-layer-group"></i> テキスト要素
+                      </h3>
+                      <button onClick={addText} className="text-xs bg-neutral-700 hover:bg-neutral-600 px-2 py-1 rounded flex items-center gap-1">
+                        <i className="fa-solid fa-plus"></i> 追加
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {texts.map(t => (
+                        <button 
+                          key={t.id}
+                          onClick={() => setSelectedTextId(t.id)}
+                          className={`px-3 py-1.5 text-xs rounded-full truncate max-w-[120px] transition-colors border ${selectedTextId === t.id ? 'bg-white text-black border-white font-bold' : 'border-neutral-600 hover:bg-neutral-700'}`}
+                        >
+                          {t.text.substring(0, 10) || 'Empty'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedTextObj ? (
+                    <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 space-y-4 relative">
+                      <div className="flex justify-between items-center mb-2 border-b border-neutral-800 pb-2">
+                        <span className="text-sm font-bold text-white">選択中のテキスト編集</span>
+                        <button onClick={deleteText} className="text-red-400 hover:text-red-300 p-1 bg-neutral-800 rounded">
+                          <i className="fa-solid fa-trash"></i>
+                        </button>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-xs text-neutral-400">内容</label>
+                          <button onClick={applyRandomCatchphrase} className="text-[10px] text-green-400 hover:text-green-300 flex items-center gap-1 bg-neutral-800 px-2 py-0.5 rounded">
+                            <i className="fa-solid fa-dice"></i> ランダム生成
+                          </button>
+                        </div>
+                        <textarea 
+                          value={selectedTextObj.text}
+                          onChange={(e) => updateSelectedText('text', e.target.value)}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded p-2 text-sm text-white focus:outline-none focus:border-neutral-500 min-h-[60px]"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs text-neutral-400 block mb-1">フォント</label>
+                          <select 
+                            value={selectedTextObj.font}
+                            onChange={(e) => updateSelectedText('font', e.target.value)}
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded p-2 text-sm text-white focus:outline-none"
+                          >
+                            {FONTS.map(f => (
+                              <option key={f.name} value={f.name} style={{fontFamily: f.name}}>{f.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-neutral-400 block mb-1">太さ</label>
+                          <select 
+                            value={selectedTextObj.weight}
+                            onChange={(e) => updateSelectedText('weight', e.target.value)}
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded p-2 text-sm text-white focus:outline-none"
+                          >
+                            <option value="300">Light</option>
+                            <option value="400">Regular</option>
+                            <option value="600">SemiBold</option>
+                            <option value="900">Black</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-neutral-400 flex justify-between mb-1">
+                          <span>サイズ</span>
+                          <span>{selectedTextObj.size}px</span>
+                        </label>
+                        <input 
+                          type="range" min="10" max="600" 
+                          value={selectedTextObj.size}
+                          onChange={(e) => updateSelectedText('size', parseInt(e.target.value))}
+                          className="w-full"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-neutral-400 block mb-1">
+                          ブレンドモード
+                        </label>
+                        <select 
+                          value={selectedTextObj.blendMode || 'source-over'}
+                          onChange={(e) => updateSelectedText('blendMode', e.target.value)}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded p-2 text-sm text-white focus:outline-none"
+                        >
+                          {BLEND_MODES.map(m => (
+                            <option key={m.value} value={m.value}>{m.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-neutral-400 block mb-1">カラー</label>
+                        <div className="flex items-center gap-3">
+                          <input 
+                            type="color" 
+                            value={selectedTextObj.color}
+                            onChange={(e) => updateSelectedText('color', e.target.value)}
+                            className="w-10 h-10 rounded cursor-pointer border-0 p-0 bg-transparent"
+                          />
+                          <div className="flex gap-2">
+                            {palette.map((color, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => updateSelectedText('color', color)}
+                                className="w-8 h-8 rounded-full border border-neutral-600 shadow-sm transform hover:scale-110 transition-transform"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 text-neutral-500 text-sm border border-dashed border-neutral-700 rounded-xl">
+                      上のボタンから編集するテキストを選択してください
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* === 保存/全画面プレビュー用モーダル (スマホ長押し保存対応) === */}
+          {exportDataUrl && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+              <div className="relative max-w-full max-h-full flex flex-col items-center">
+                {/* 閉じるボタン */}
+                <button 
+                  onClick={() => setExportDataUrl(null)}
+                  className="absolute -top-12 right-0 text-white bg-neutral-800 hover:bg-neutral-700 rounded-full w-10 h-10 flex items-center justify-center transition-colors"
+                >
+                  <i className="fa-solid fa-xmark text-xl"></i>
+                </button>
+                
+                {/* ユーザーへの案内 */}
+                <div className="bg-white/10 text-white text-sm md:text-base px-6 py-3 rounded-full mb-4 flex items-center gap-2 font-bold backdrop-blur">
+                  <i className="fa-solid fa-mobile-screen"></i> スマホは画像を長押しして保存（PCは右クリック）
+                </div>
+
+                {/* 実体の画像タグ (これで長押し保存が可能になる) */}
+                <img 
+                  src={exportDataUrl} 
+                  alt="Exported Magazine Cover" 
+                  className="max-h-[75vh] w-auto object-contain rounded shadow-2xl pointer-events-auto"
+                />
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<MagazineCoverMaker />);
+  </script>
+</body>
+</html>
